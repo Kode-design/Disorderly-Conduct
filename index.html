@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Disorderly Conduct Demo</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="game-root" class="boot-screen" role="application" aria-live="polite">
+      <div class="boot-logo">Disorderly Conduct</div>
+      <div class="boot-spinner" aria-hidden="true"></div>
+      <p class="boot-hint">Initializing detention protocols…</p>
+    </div>
+    <template id="title-screen-template">
+      <div class="title-screen">
+        <div class="title-background"></div>
+        <div class="title-overlay">
+          <h1 class="title-logo">Disorderly Conduct</h1>
+          <button class="title-cta" data-action="enter-menu">Press Enter / Click to Begin</button>
+          <p class="title-sub">Rain-slick nights. Steel doors. No second chances.</p>
+        </div>
+      </div>
+    </template>
+    <template id="main-menu-template">
+      <div class="menu-screen" data-scene="MainMenu">
+        <div class="parallax parallax-back"></div>
+        <div class="parallax parallax-mid"></div>
+        <div class="parallax rain"></div>
+        <div class="menu-frame">
+          <div class="menu-header">
+            <h1 class="menu-logo">Disorderly Conduct</h1>
+            <p class="menu-subtitle">Vertical Slice Demo</p>
+          </div>
+          <nav class="menu-nav" aria-label="Main menu">
+            <button class="menu-item" data-action="start">Start</button>
+            <button class="menu-item" data-action="continue">Continue</button>
+            <button class="menu-item" data-action="load">Load</button>
+            <button class="menu-item" data-action="settings">Settings</button>
+            <button class="menu-item" data-action="extras">Extras</button>
+            <button class="menu-item" data-action="quit">Quit</button>
+          </nav>
+          <footer class="menu-footer">
+            <div class="hint">Enter / A = Select</div>
+            <div class="hint">Esc / B = Back</div>
+            <div class="hint">F1 = Toggle Accessibility Preview</div>
+          </footer>
+        </div>
+        <div class="menu-panel" data-panel="load">
+          <h2>Load Game</h2>
+          <div class="save-grid" role="list"></div>
+          <button class="panel-close" data-action="close-panel">Back</button>
+        </div>
+        <div class="menu-panel" data-panel="extras">
+          <h2>Extras</h2>
+          <ul>
+            <li>Credits (coming soon)</li>
+            <li>Legal</li>
+            <li>Concept Art (stub)</li>
+          </ul>
+          <button class="panel-close" data-action="close-panel">Back</button>
+        </div>
+        <div class="menu-panel settings" data-panel="settings" aria-modal="true" role="dialog">
+          <header>
+            <h2>Settings</h2>
+            <button class="panel-close" data-action="close-panel" aria-label="Close settings">×</button>
+          </header>
+          <div class="settings-tabs" role="tablist">
+            <button role="tab" aria-selected="true" data-tab="audio">Audio</button>
+            <button role="tab" aria-selected="false" data-tab="video">Video</button>
+            <button role="tab" aria-selected="false" data-tab="gameplay">Gameplay</button>
+            <button role="tab" aria-selected="false" data-tab="controls">Controls</button>
+            <button role="tab" aria-selected="false" data-tab="accessibility">Accessibility</button>
+          </div>
+          <div class="settings-content">
+            <section data-tab-panel="audio"></section>
+            <section data-tab-panel="video" hidden></section>
+            <section data-tab-panel="gameplay" hidden></section>
+            <section data-tab-panel="controls" hidden></section>
+            <section data-tab-panel="accessibility" hidden></section>
+          </div>
+        </div>
+      </div>
+    </template>
+    <template id="character-creator-template">
+      <div class="character-creator" data-scene="CharacterCreator">
+        <header class="creator-header">
+          <button class="back" data-action="back-to-menu">← Main Menu</button>
+          <h2>Intake Profile</h2>
+        </header>
+        <main class="creator-body">
+          <section class="creator-preview" aria-live="polite">
+            <div class="preview-stage">
+              <div class="preview-character" role="img" aria-label="Character preview">
+                <div class="preview-silhouette"></div>
+                <div class="preview-hair"></div>
+              </div>
+              <p class="preview-caption">Orange jumpsuit. Fresh intake.</p>
+            </div>
+          </section>
+          <section class="creator-controls">
+            <div class="control-group" data-category="skin">
+              <h3>Skin Tone</h3>
+              <div class="swatch-row" role="radiogroup"></div>
+            </div>
+            <div class="control-group" data-category="hairStyle">
+              <h3>Hair Style</h3>
+              <div class="option-list" role="radiogroup"></div>
+            </div>
+            <div class="control-group" data-category="hairColor">
+              <h3>Hair Color</h3>
+              <div class="swatch-row" role="radiogroup"></div>
+            </div>
+            <div class="control-group identity">
+              <h3>Identity</h3>
+              <label>
+                Name (max 12)
+                <input type="text" maxlength="12" data-field="name" placeholder="Enter name" autocomplete="off" />
+              </label>
+              <button data-action="randomize">Randomize</button>
+            </div>
+            <div class="control-group outfit locked" title="Issued on intake; change later.">
+              <h3>Outfit</h3>
+              <p>Orange Jumpsuit (Locked)</p>
+            </div>
+          </section>
+        </main>
+        <footer class="creator-footer">
+          <button class="secondary" data-action="back-to-menu">Back</button>
+          <button class="primary" data-action="confirm" disabled>Confirm</button>
+        </footer>
+      </div>
+    </template>
+    <template id="cutscene-template">
+      <div class="cutscene" data-scene="IntroCutscene">
+        <div class="letterbox top"></div>
+        <div class="letterbox bottom"></div>
+        <div class="cutscene-stage">
+          <div class="cutscene-frame">
+            <div class="cutscene-panel" data-panel="transport">
+              <p class="cutscene-subtitle" data-subtitle="transport">[Guard] Welcome home, hero.</p>
+            </div>
+            <div class="cutscene-panel" data-panel="cell" hidden>
+              <p class="cutscene-subtitle" data-subtitle="cell">Metal door slams shut.</p>
+            </div>
+            <div class="cutscene-panel" data-panel="resolve" hidden>
+              <p class="cutscene-subtitle" data-subtitle="resolve">The night goes quiet.</p>
+            </div>
+          </div>
+          <button class="skip" data-action="skip" aria-live="assertive">
+            Hold to Skip
+            <span class="skip-progress" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </template>
+    <template id="prison-template">
+      <div class="prison" data-scene="PrisonCell_Tutorial">
+        <div class="tutorial-objectives">
+          <h2>Test your moves.</h2>
+          <ul>
+            <li data-objective="move">Move left/right</li>
+            <li data-objective="jump">Jump</li>
+            <li data-objective="attack">Throw a punch</li>
+            <li data-objective="pause">Open the pause menu</li>
+          </ul>
+        </div>
+        <div class="cell-stage">
+          <div class="cell-background"></div>
+          <div class="cell-character" role="img" aria-label="Player character" tabindex="0"></div>
+          <div class="cell-door" title="Exit"></div>
+        </div>
+        <div class="pause-overlay" hidden>
+          <div class="pause-menu" role="dialog" aria-modal="true">
+            <h2>Paused</h2>
+            <button data-action="resume">Resume</button>
+            <button data-action="settings">Settings</button>
+            <button data-action="quit">Quit to Menu</button>
+          </div>
+        </div>
+      </div>
+    </template>
+    <script src="main.js" type="module"></script>
+  </body>
+</html>
