@@ -113,6 +113,72 @@ const RANDOM_NAMES = [
   "Harper"
 ];
 
+const PROHIBITED_NAMES = ["fuck", "shit", "bitch"];
+
+const EXTRAS_SECTIONS = {
+  credits: {
+    title: "Credits",
+    description:
+      "This vertical slice was assembled by a three-person strike team: designer, artist, and engineer working in lockstep.",
+    list: [
+      { role: "Design & Narrative", name: "J. Monroe" },
+      { role: "Art & UI", name: "L. Campos" },
+      { role: "Engineering", name: "S. Idris" }
+    ],
+    footer: "Additional shout-outs to the audio collective 'Steel Rain' for placeholder ambience."
+  },
+  lore: {
+    title: "Lore Drop",
+    description:
+      "Rival crews set you up after a failed job. The demo ends before you meet the mysterious fixer whispering about a jailbreak.",
+    list: [
+      { role: "Setting", name: "Caligo City Detention Annex" },
+      { role: "Known Ally", name: "Rook — smuggler with a conscience" },
+      { role: "Known Threat", name: "Warden Kessel — believes in loyalty through fear" }
+    ],
+    footer: "Full campaign pivots between the prison complex interior and a neon-soaked industrial district."
+  },
+  concept: {
+    title: "Concept Art",
+    description:
+      "Mood frames showcasing the prison's brutalist geometry against warm human details. Swipe to imagine them in motion.",
+    gallery: [
+      { title: "Intake Hall", caption: "Floodlights through rain-slicked grates." },
+      { title: "Cell Block C", caption: "Graffiti coded in inmate cipher." },
+      { title: "Maintenance Tunnel", caption: "Steam haze and the hum of transformers." }
+    ],
+    footer: "Visual targets lean on high-contrast lighting and saturated accent colors for clarity."
+  }
+};
+
+const SUBTITLE_SCALE = { S: 0.9, M: 1, L: 1.25 };
+
+const CUTSCENE_STEPS = [
+  {
+    id: "transport",
+    duration: 3600,
+    subtitle: "[Guard] Welcome home, hero.",
+    caption: "Armored transport rattles through the rain.",
+    effect: "rumble"
+  },
+  {
+    id: "cell",
+    duration: 3200,
+    subtitle: "Metal door slams shut.",
+    caption: "Intake cell lights strobe once as the latch slams.",
+    effect: "flash"
+  },
+  {
+    id: "resolve",
+    duration: 2600,
+    subtitle: "The night goes quiet.",
+    caption: "Silence presses in. Footsteps fade down the hall.",
+    effect: "breath"
+  }
+];
+
+const CUTSCENE_HOLD_DURATION = 1500;
+
 const SETTINGS_SCHEMA = {
   audio: [
     { type: "range", key: "master", label: "Master Volume", min: 0, max: 100 },
@@ -161,6 +227,7 @@ class Game {
     this.accessibilityPreview = false;
     this.bootTimeout = null;
     this.setupGlobalHandlers();
+    this.applySettingsToDocument();
     this.startBootSequence();
   }
 
@@ -228,6 +295,20 @@ class Game {
     document.body.classList.toggle("accessibility-preview", this.accessibilityPreview);
   }
 
+  applySettingsToDocument() {
+    const { gameplay, accessibility } = this.state.settings;
+    const subtitleScale = SUBTITLE_SCALE[gameplay.subtitleSize] ?? 1;
+    document.documentElement.style.setProperty("--subtitle-scale", subtitleScale);
+    document.body.classList.toggle("subtitles-disabled", !gameplay.subtitles);
+    if (accessibility.colorblind && accessibility.colorblind !== "Off") {
+      document.body.dataset.colorblind = accessibility.colorblind.toLowerCase();
+    } else {
+      delete document.body.dataset.colorblind;
+    }
+    document.body.classList.toggle("reduce-flashes", Boolean(accessibility.reduceFlashes));
+    document.body.classList.toggle("hold-to-press", Boolean(accessibility.holdToPress));
+  }
+
   renderTitleScreen() {
     const node = cloneTemplate("title-screen-template");
     const cta = node.querySelector("[data-action=\"enter-menu\"]");
@@ -260,6 +341,7 @@ class Game {
     const loadPanel = node.querySelector('[data-panel="load"]');
     const extrasPanel = node.querySelector('[data-panel="extras"]');
     const settingsPanel = node.querySelector('[data-panel="settings"]');
+    const parallaxCleanup = this.createParallaxController(node);
 
     const hasSave = Boolean(this.state.saveSlot);
     if (!hasSave) {
@@ -308,6 +390,7 @@ class Game {
         }
         case "extras": {
           closePanels();
+          this.populateExtrasPanel(extrasPanel);
           extrasPanel.classList.add("active");
           break;
         }
@@ -341,10 +424,12 @@ class Game {
 
     window.addEventListener("keydown", keyHandler);
 
-    return {
-      node,
-      onCleanup: () => window.removeEventListener("keydown", keyHandler)
+    const cleanup = () => {
+      window.removeEventListener("keydown", keyHandler);
+      if (parallaxCleanup) parallaxCleanup();
     };
+
+    return { node, onCleanup: cleanup };
   }
 
   populateLoadPanel(panel) {
@@ -361,11 +446,24 @@ class Game {
     const card = document.createElement("button");
     card.className = "save-card";
     card.setAttribute("role", "listitem");
+    const progressLabel =
+      slot.progress === "PrisonCell_Tutorial" ? "Prison Cell Tutorial" : "Intro Cutscene";
+    const timestamp = slot.timestamp ? new Date(slot.timestamp) : new Date();
+    const hairStyle = (slot.appearance?.hairStyle || "Short").toLowerCase();
+    const skinTone = slot.appearance?.skinTone || "#f6d6c1";
+    const hairColor = slot.appearance?.hairColor || "#2b2115";
+    const objectivesStatus = slot.objectivesComplete ? "Checklist cleared" : "Checklist pending";
     card.innerHTML = `
-      <strong>Slot 01</strong>
-      <span>${slot.name}</span>
-      <span>Scene: ${slot.progress === "PrisonCell_Tutorial" ? "Prison Cell" : "Intro Cutscene"}</span>
-      <span>Timestamp: ${new Date(slot.timestamp).toLocaleString()}</span>
+      <div class="save-thumbnail" data-style="${hairStyle}">
+        <span class="save-skin" style="background: ${skinTone};"></span>
+        <span class="save-hair" style="background: ${hairColor};"></span>
+      </div>
+      <div class="save-meta">
+        <strong>Slot 01 — ${slot.name}</strong>
+        <span class="save-progress">${progressLabel}</span>
+        <span class="save-objectives">${objectivesStatus}</span>
+        <time datetime="${timestamp.toISOString()}">Saved ${timestamp.toLocaleString()}</time>
+      </div>
     `;
     card.addEventListener("click", () => {
       this.state.progress = slot.progress;
@@ -429,6 +527,7 @@ class Game {
             categoryState[control.key] = Number(input.value);
             value.textContent = input.value;
             saveState(this.state);
+            this.applySettingsToDocument();
           });
 
           wrapper.append(input, value);
@@ -444,6 +543,7 @@ class Game {
           input.addEventListener("change", () => {
             categoryState[control.key] = input.checked;
             saveState(this.state);
+            this.applySettingsToDocument();
           });
           wrapper.append(text, input);
           section.append(wrapper);
@@ -463,6 +563,7 @@ class Game {
           select.addEventListener("change", () => {
             categoryState[control.key] = select.value;
             saveState(this.state);
+            this.applySettingsToDocument();
           });
           wrapper.append(text, select);
           section.append(wrapper);
@@ -479,6 +580,181 @@ class Game {
     setActiveTab("audio");
   }
 
+  createParallaxController(container) {
+    const layers = container.querySelectorAll(".parallax");
+    if (!layers.length) return null;
+
+    let animationFrame = null;
+    let containerRect = container.getBoundingClientRect();
+    const current = { x: 0, y: 0 };
+    const target = { x: 0, y: 0 };
+
+    const updateTargetFromPointer = (event) => {
+      const centerX = containerRect.left + containerRect.width / 2;
+      const centerY = containerRect.top + containerRect.height / 2;
+      target.x = ((event.clientX - centerX) / containerRect.width) * 40;
+      target.y = ((event.clientY - centerY) / containerRect.height) * 20;
+    };
+
+    const handlePointerMove = (event) => {
+      updateTargetFromPointer(event);
+    };
+
+    const handlePointerLeave = () => {
+      target.x = 0;
+      target.y = 0;
+    };
+
+    const handleResize = () => {
+      containerRect = container.getBoundingClientRect();
+    };
+
+    const animate = (time) => {
+      const driftX = Math.sin(time / 4200) * 18;
+      const driftY = Math.cos(time / 5300) * 10;
+      const goalX = target.x + driftX;
+      const goalY = target.y + driftY;
+      current.x += (goalX - current.x) * 0.08;
+      current.y += (goalY - current.y) * 0.08;
+      layers.forEach((layer, index) => {
+        const depth = (index + 1) / layers.length;
+        layer.style.transform = `translate3d(${current.x * depth}px, ${current.y * depth}px, 0)`;
+      });
+      animationFrame = window.requestAnimationFrame(animate);
+    };
+
+    container.addEventListener("pointermove", handlePointerMove);
+    container.addEventListener("pointerdown", handlePointerMove);
+    container.addEventListener("pointerleave", handlePointerLeave);
+    window.addEventListener("resize", handleResize);
+    animationFrame = window.requestAnimationFrame(animate);
+
+    return () => {
+      container.removeEventListener("pointermove", handlePointerMove);
+      container.removeEventListener("pointerdown", handlePointerMove);
+      container.removeEventListener("pointerleave", handlePointerLeave);
+      window.removeEventListener("resize", handleResize);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      layers.forEach((layer) => {
+        layer.style.transform = "";
+      });
+    };
+  }
+
+  populateExtrasPanel(panel) {
+    if (!panel) return;
+    const tabs = panel.querySelectorAll("[role=\"tab\"][data-extra]");
+    const container = panel.querySelector("[data-extra-container]");
+    if (!container || !tabs.length) return;
+
+    container.id = container.id || "extras-panel-content";
+    container.setAttribute("role", "tabpanel");
+    container.tabIndex = 0;
+
+    const render = (id) => {
+      const data = EXTRAS_SECTIONS[id];
+      container.innerHTML = "";
+      if (!data) {
+        const empty = document.createElement("p");
+        empty.textContent = "Content unavailable.";
+        container.append(empty);
+        return;
+      }
+
+      const heading = document.createElement("h3");
+      heading.textContent = data.title;
+      container.append(heading);
+
+      if (data.description) {
+        const desc = document.createElement("p");
+        desc.textContent = data.description;
+        container.append(desc);
+      }
+
+      if (data.list) {
+        const list = document.createElement("dl");
+        list.className = "extras-list";
+        data.list.forEach((item) => {
+          const term = document.createElement("dt");
+          term.textContent = item.role;
+          const detail = document.createElement("dd");
+          detail.textContent = item.name;
+          list.append(term, detail);
+        });
+        container.append(list);
+      }
+
+      if (data.gallery) {
+        const gallery = document.createElement("div");
+        gallery.className = "extras-gallery";
+        data.gallery.forEach((item, index) => {
+          const card = document.createElement("article");
+          card.className = "extras-card";
+          card.dataset.index = String(index + 1);
+          const title = document.createElement("h4");
+          title.textContent = item.title;
+          const caption = document.createElement("p");
+          caption.textContent = item.caption;
+          card.append(title, caption);
+          gallery.append(card);
+        });
+        container.append(gallery);
+      }
+
+      if (data.footer) {
+        const footer = document.createElement("p");
+        footer.className = "extras-footer";
+        footer.textContent = data.footer;
+        container.append(footer);
+      }
+      container.dataset.activeExtra = id;
+      window.requestAnimationFrame(() => container.focus());
+    };
+
+    const setActiveTab = (id) => {
+      tabs.forEach((tab) => {
+        const isActive = tab.dataset.extra === id;
+        tab.setAttribute("aria-selected", isActive ? "true" : "false");
+        if (isActive) tab.classList.add("active");
+        else tab.classList.remove("active");
+      });
+      render(id);
+    };
+
+    tabs.forEach((tab, index) => {
+      tab.setAttribute("aria-controls", container.id);
+      if (tab.dataset.bound === "true") return;
+      tab.dataset.bound = "true";
+      tab.addEventListener("click", () => setActiveTab(tab.dataset.extra));
+      tab.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+          event.preventDefault();
+          const direction = event.key === "ArrowRight" ? 1 : -1;
+          const nextIndex = (index + direction + tabs.length) % tabs.length;
+          const nextTab = tabs[nextIndex];
+          nextTab.focus();
+          setActiveTab(nextTab.dataset.extra);
+        }
+      });
+    });
+
+    const initialize = () => {
+      setActiveTab(tabs[0].dataset.extra);
+      panel.dataset.initialized = "true";
+      window.requestAnimationFrame(() => tabs[0].focus());
+    };
+
+    if (panel.dataset.initialized === "true") {
+      const active = panel.querySelector('[role="tab"][aria-selected="true"]');
+      const target = active?.dataset.extra ?? tabs[0].dataset.extra;
+      setActiveTab(target);
+      window.requestAnimationFrame(() => active?.focus());
+      return;
+    }
+
+    initialize();
+  }
+
   renderCharacterCreator() {
     const node = cloneTemplate("character-creator-template");
     const preview = node.querySelector(".preview-character");
@@ -486,8 +762,10 @@ class Game {
     const nameInput = node.querySelector('[data-field="name"]');
     const confirmBtn = node.querySelector('[data-action="confirm"]');
     const randomizeBtn = node.querySelector('[data-action="randomize"]');
+    const nameError = node.querySelector('[data-field="name-error"]');
 
     const working = structuredClone(this.state.playerAppearance);
+    let nameTouched = Boolean(working.name.trim());
 
     const applyPreview = () => {
       preview.style.background = `linear-gradient(180deg, ${working.skinTone} 35%, #f97316 35%)`;
@@ -497,9 +775,30 @@ class Game {
       window.setTimeout(() => preview.classList.remove("animate"), 400);
     };
 
-    const isNameValid = () => working.name.trim().length >= 1;
+    const validateName = () => {
+      const trimmed = working.name.trim();
+      if (!trimmed) {
+        return { valid: false, message: "Enter a name to continue." };
+      }
+      if (trimmed.length > 12) {
+        return { valid: false, message: "Name must be 12 characters or fewer." };
+      }
+      const normalized = trimmed.toLowerCase();
+      if (PROHIBITED_NAMES.some((word) => normalized.includes(word))) {
+        return { valid: false, message: "That name contains blocked language." };
+      }
+      return { valid: true, message: "" };
+    };
+
     const updateConfirmState = () => {
-      confirmBtn.disabled = !isNameValid();
+      const { valid, message } = validateName();
+      confirmBtn.disabled = !valid;
+      nameInput.setCustomValidity(message);
+      if (nameError) {
+        const shouldShow = nameTouched && !valid;
+        nameError.textContent = shouldShow ? message : "";
+        nameError.hidden = !shouldShow;
+      }
     };
 
     const buildSwatch = (value, groupName, current) => {
@@ -558,6 +857,11 @@ class Game {
     nameInput.value = working.name;
     nameInput.addEventListener("input", () => {
       working.name = nameInput.value;
+      nameTouched = true;
+      updateConfirmState();
+    });
+    nameInput.addEventListener("blur", () => {
+      nameTouched = true;
       updateConfirmState();
     });
 
@@ -567,6 +871,7 @@ class Game {
       working.hairStyle = HAIR_STYLES[Math.floor(Math.random() * HAIR_STYLES.length)];
       working.name = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
       nameInput.value = working.name;
+      nameTouched = true;
       skinRow.querySelectorAll("button").forEach((btn) => btn.setAttribute("aria-checked", btn.dataset.value === working.skinTone ? "true" : "false"));
       hairColorRow.querySelectorAll("button").forEach((btn) => btn.setAttribute("aria-checked", btn.dataset.value === working.hairColor ? "true" : "false"));
       hairStyleList.querySelectorAll("button").forEach((btn) => btn.setAttribute("aria-checked", btn.textContent === working.hairStyle ? "true" : "false"));
@@ -580,7 +885,14 @@ class Game {
       if (action === "back-to-menu") {
         this.goTo("MainMenu");
       }
-      if (action === "confirm" && isNameValid()) {
+      if (action === "confirm") {
+        const { valid } = validateName();
+        if (!valid) {
+          nameTouched = true;
+          updateConfirmState();
+          nameInput.focus();
+          return;
+        }
         this.state.playerAppearance = structuredClone(working);
         this.state.saveSlot = {
           name: working.name,
@@ -609,60 +921,106 @@ class Game {
       saveState(this.state);
     }
     const node = cloneTemplate("cutscene-template");
-    const panels = {
-      transport: node.querySelector('[data-panel="transport"]'),
-      cell: node.querySelector('[data-panel="cell"]'),
-      resolve: node.querySelector('[data-panel="resolve"]')
-    };
-    const letterboxes = node.querySelectorAll(".letterbox");
-    letterboxes.forEach((box) => box.classList.add("active"));
-
+    const stage = node.querySelector(".cutscene-stage");
+    const caption = node.querySelector("[data-cutscene-caption]");
     const skipButton = node.querySelector("[data-action=\"skip\"]");
+    const progressEl = skipButton.querySelector(".skip-progress");
+    const panels = Object.fromEntries(
+      CUTSCENE_STEPS.map((step) => [step.id, node.querySelector(`[data-panel="${step.id}"]`)]).filter(([, el]) => Boolean(el))
+    );
+    const subtitles = Object.fromEntries(
+      Object.entries(panels).map(([id, panel]) => [id, panel.querySelector(".cutscene-subtitle")])
+    );
 
-    const stepTimers = [];
-    const showPanel = (current) => {
-      Object.entries(panels).forEach(([key, panel]) => {
-        panel.hidden = key !== current;
+    node.querySelectorAll(".letterbox").forEach((box) => box.classList.add("active"));
+    progressEl.classList.add("skip-bar");
+    progressEl.style.setProperty("--progress", 0);
+
+    const timers = [];
+    const typewriters = [];
+    const showSubtitles = this.state.settings.gameplay.subtitles;
+    const reduceFlashes = this.state.settings.accessibility.reduceFlashes;
+
+    const clearTypewriters = () => {
+      while (typewriters.length) {
+        const handle = typewriters.pop();
+        window.clearInterval(handle);
+      }
+    };
+
+    const typeSubtitle = (id, text) => {
+      const element = subtitles[id];
+      if (!element) return;
+      clearTypewriters();
+      if (!showSubtitles) {
+        element.hidden = true;
+        element.textContent = "";
+        return;
+      }
+      element.hidden = false;
+      element.textContent = "";
+      let index = 0;
+      const handle = window.setInterval(() => {
+        if (index >= text.length) {
+          window.clearInterval(handle);
+          return;
+        }
+        element.textContent += text[index];
+        index += 1;
+      }, 28);
+      typewriters.push(handle);
+    };
+
+    const showPanel = (id) => {
+      Object.entries(panels).forEach(([panelId, panel]) => {
+        panel.hidden = panelId !== id;
       });
     };
 
-    const schedule = [
-      { panel: "transport", duration: 3500 },
-      { panel: "cell", duration: 3000 },
-      { panel: "resolve", duration: 2500 }
-    ];
+    const applyStageEffect = (effect) => {
+      stage.classList.remove("effect-rumble", "effect-flash", "effect-breath");
+      if (!effect) return;
+      if (effect === "flash" && reduceFlashes) {
+        stage.classList.add("effect-breath");
+        return;
+      }
+      stage.classList.add(`effect-${effect}`);
+    };
 
     const runStep = (index) => {
-      const step = schedule[index];
-      showPanel(step.panel);
+      const step = CUTSCENE_STEPS[index];
+      if (!step) return;
+      showPanel(step.id);
+      stage.dataset.cutsceneState = step.id;
+      caption.textContent = step.caption;
+      typeSubtitle(step.id, step.subtitle);
+      applyStageEffect(step.effect);
       const timer = window.setTimeout(() => {
-        if (index + 1 < schedule.length) {
+        if (index + 1 < CUTSCENE_STEPS.length) {
           runStep(index + 1);
         } else {
           this.finishCutscene();
         }
       }, step.duration);
-      stepTimers.push(timer);
+      timers.push(timer);
     };
 
     runStep(0);
 
     let skipEnabled = false;
-    window.setTimeout(() => {
+    const enableSkipTimer = window.setTimeout(() => {
       skipEnabled = true;
       skipButton.dataset.state = "ready";
     }, 3000);
+    timers.push(enableSkipTimer);
 
     let holdStart = null;
     let frameId = null;
-    const progressEl = skipButton.querySelector(".skip-progress");
-    progressEl.classList.add("skip-bar");
-    progressEl.style.setProperty("--progress", 0);
 
     const updateProgress = (now) => {
       if (!holdStart) return;
       const elapsed = now - holdStart;
-      const ratio = Math.min(1, elapsed / 1500);
+      const ratio = Math.min(1, elapsed / CUTSCENE_HOLD_DURATION);
       progressEl.style.setProperty("--progress", ratio);
       if (ratio >= 1) {
         completeSkip();
@@ -686,11 +1044,12 @@ class Game {
 
     const completeSkip = () => {
       cancelHold();
+      clearTypewriters();
       this.finishCutscene();
     };
 
     skipButton.addEventListener("mousedown", startHold);
-    skipButton.addEventListener("touchstart", startHold);
+    skipButton.addEventListener("touchstart", startHold, { passive: true });
     skipButton.addEventListener("mouseup", cancelHold);
     skipButton.addEventListener("mouseleave", cancelHold);
     skipButton.addEventListener("touchend", cancelHold);
@@ -707,7 +1066,8 @@ class Game {
     return {
       node,
       onCleanup: () => {
-        stepTimers.forEach((id) => window.clearTimeout(id));
+        timers.forEach((id) => window.clearTimeout(id));
+        clearTypewriters();
         cancelHold();
         window.removeEventListener("keydown", skipKeyHandler);
       }
@@ -739,11 +1099,26 @@ class Game {
       attack: node.querySelector('[data-objective="attack"]'),
       pause: node.querySelector('[data-objective="pause"]')
     };
+    const completionOverlay = node.querySelector(".tutorial-complete");
+    const resumeButton = completionOverlay?.querySelector('[data-action="resume-play"]');
+    const returnButton = completionOverlay?.querySelector('[data-action="return-menu"]');
     const objectivesState = {
       move: false,
       jump: false,
       attack: false,
       pause: false
+    };
+
+    const showCompletion = () => {
+      if (!completionOverlay || !resumeButton || !returnButton) return;
+      if (!completionOverlay.hidden) return;
+      completionOverlay.hidden = false;
+      window.requestAnimationFrame(() => resumeButton.focus());
+    };
+
+    const hideCompletion = () => {
+      if (!completionOverlay) return;
+      completionOverlay.hidden = true;
     };
 
     const completeObjective = (key) => {
@@ -758,12 +1133,14 @@ class Game {
         door.classList.add("open");
         const list = node.querySelector(".tutorial-objectives h2");
         list.textContent = "Open the door.";
+        node.querySelector(".tutorial-objectives")?.classList.add("complete");
         if (this.state.saveSlot) {
           this.state.saveSlot.progress = "PrisonCell_Tutorial";
           this.state.saveSlot.objectivesComplete = true;
           this.state.saveSlot.timestamp = Date.now();
           saveState(this.state);
         }
+        window.setTimeout(showCompletion, 600);
       }
     };
 
@@ -919,8 +1296,29 @@ class Game {
       }
     });
 
+    resumeButton?.addEventListener("click", () => {
+      hideCompletion();
+      window.requestAnimationFrame(() => character.focus());
+    });
+
+    returnButton?.addEventListener("click", () => {
+      hideCompletion();
+      this.goTo("MainMenu");
+    });
+
     character.addEventListener("focus", () => startLoop());
     window.requestAnimationFrame(() => character.focus());
+
+    if (this.state.saveSlot?.objectivesComplete) {
+      Object.keys(objectivesState).forEach((key) => {
+        objectivesState[key] = true;
+        objectivesElements[key]?.classList.add("completed");
+      });
+      door.classList.add("open");
+      node.querySelector(".tutorial-objectives h2").textContent = "Open the door.";
+      node.querySelector(".tutorial-objectives")?.classList.add("complete");
+      window.setTimeout(showCompletion, 400);
+    }
 
     return {
       node,

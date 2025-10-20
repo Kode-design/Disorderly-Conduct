@@ -57,14 +57,22 @@
           <div class="save-grid" role="list"></div>
           <button class="panel-close" data-action="close-panel">Back</button>
         </div>
-        <div class="menu-panel" data-panel="extras">
-          <h2>Extras</h2>
-          <ul>
-            <li>Credits (coming soon)</li>
-            <li>Legal</li>
-            <li>Concept Art (stub)</li>
-          </ul>
-          <button class="panel-close" data-action="close-panel">Back</button>
+        <div class="menu-panel extras" data-panel="extras">
+          <header>
+            <h2>Extras</h2>
+            <p class="extras-tagline">Peek behind this slice of Disorderly Conduct.</p>
+          </header>
+          <div class="extras-body">
+            <nav class="extras-tabs" role="tablist" aria-label="Extras categories">
+              <button role="tab" aria-selected="true" data-extra="credits">Credits</button>
+              <button role="tab" aria-selected="false" data-extra="lore">Lore</button>
+              <button role="tab" aria-selected="false" data-extra="concept">Concept Art</button>
+            </nav>
+            <section class="extras-content" data-extra-container aria-live="polite"></section>
+          </div>
+          <footer>
+            <button class="panel-close" data-action="close-panel">Back</button>
+          </footer>
         </div>
         <div class="menu-panel settings" data-panel="settings" aria-modal="true" role="dialog">
           <header>
@@ -123,6 +131,7 @@
                 Name (max 12)
                 <input type="text" maxlength="12" data-field="name" placeholder="Enter name" autocomplete="off" />
               </label>
+              <p class="input-hint" data-field="name-error" role="status" aria-live="polite"></p>
               <button data-action="randomize">Randomize</button>
             </div>
             <div class="control-group outfit locked" title="Issued on intake; change later.">
@@ -141,7 +150,11 @@
       <div class="cutscene" data-scene="IntroCutscene">
         <div class="letterbox top"></div>
         <div class="letterbox bottom"></div>
-        <div class="cutscene-stage">
+        <div class="cutscene-stage" data-cutscene-state="transport">
+          <div class="cutscene-backdrop" aria-hidden="true">
+            <div class="cutscene-light"></div>
+            <div class="cutscene-rain"></div>
+          </div>
           <div class="cutscene-frame">
             <div class="cutscene-panel" data-panel="transport">
               <p class="cutscene-subtitle" data-subtitle="transport">[Guard] Welcome home, hero.</p>
@@ -153,6 +166,7 @@
               <p class="cutscene-subtitle" data-subtitle="resolve">The night goes quiet.</p>
             </div>
           </div>
+          <p class="cutscene-caption" data-cutscene-caption>Armored transport rattles through the rain.</p>
           <button class="skip" data-action="skip" aria-live="assertive">
             Hold to Skip
             <span class="skip-progress" aria-hidden="true"></span>
@@ -182,6 +196,16 @@
             <button data-action="resume">Resume</button>
             <button data-action="settings">Settings</button>
             <button data-action="quit">Quit to Menu</button>
+          </div>
+        </div>
+        <div class="tutorial-complete" hidden>
+          <div class="tutorial-complete-card" role="dialog" aria-modal="true">
+            <h2>Door Unlocked</h2>
+            <p>You cleared the intake checklist. Head into the hall when you are ready.</p>
+            <div class="tutorial-actions">
+              <button data-action="resume-play">Keep Exploring</button>
+              <button data-action="return-menu">Return to Menu</button>
+            </div>
           </div>
         </div>
       </div>
