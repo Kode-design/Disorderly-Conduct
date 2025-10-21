@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disorderly Conduct</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="background-layer"></div>
+  <main>
+    <header class="game-header">
+      <h1>Disorderly Conduct</h1>
+      <p class="tagline">A low-res crime story about high stakes.</p>
+    </header>
+
+    <section id="menuScreen" class="screen visible">
+      <div class="card">
+        <h2>Main Menu</h2>
+        <p>Welcome to <strong>Disorderly Conduct</strong>. You're the up-and-coming troublemaker trying to survive Atlas City. Customize your criminal style and learn the ropes in a high-energy tutorial.</p>
+        <button id="startGameBtn" class="primary-btn">Start</button>
+        <button id="viewCreditsBtn" class="ghost-btn">Credits</button>
+        <div id="creditsPanel" class="collapsible" hidden>
+          <p>Created by the Disorderly Conduct dev team.</p>
+          <p>Inspired by the chaotic freedom of classic open-world crime games.</p>
+        </div>
+      </div>
+      <div class="menu-tips card">
+        <h3>Tonight's Intel</h3>
+        <ul>
+          <li>Atlas City's underbelly is restless. Opportunity knocks.</li>
+          <li>Stay cool. Keep your head when heat rises.</li>
+          <li>Trust no one—especially your getaway driver.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="customizationScreen" class="screen">
+      <div class="card">
+        <h2>Build Your Street Legend</h2>
+        <form id="customizationForm">
+          <div class="form-row">
+            <label for="playerName">Alias</label>
+            <input type="text" id="playerName" name="playerName" maxlength="18" placeholder="e.g. Nova" required />
+          </div>
+          <div class="form-row inline">
+            <label for="playerPronouns">Pronouns</label>
+            <select id="playerPronouns" name="playerPronouns">
+              <option value="they/them" selected>they/them</option>
+              <option value="she/her">she/her</option>
+              <option value="he/him">he/him</option>
+              <option value="xe/xem">xe/xem</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="playerStyle">Signature Look</label>
+            <select id="playerStyle" name="playerStyle">
+              <option value="street">Street Vanguard</option>
+              <option value="sleek">Sleek Minimalist</option>
+              <option value="punk">Neon Punk</option>
+              <option value="retro">Retro Hustler</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="accentColor">Accent Color</label>
+            <input type="color" id="accentColor" name="accentColor" value="#ff4f5a" />
+          </div>
+          <div class="form-row">
+            <label for="backstory">Backstory</label>
+            <textarea id="backstory" name="backstory" rows="3" placeholder="Run-ins with street gangs, questionable mentors, a chip on your shoulder..."></textarea>
+          </div>
+          <div class="buttons">
+            <button type="button" id="randomizeBtn" class="ghost-btn">Randomize</button>
+            <button type="submit" class="primary-btn">Lock It In</button>
+          </div>
+        </form>
+      </div>
+      <div class="card preview-card">
+        <h3>Profile Preview</h3>
+        <div id="characterPreview" class="character-preview" aria-live="polite">
+          <div class="avatar">
+            <div class="avatar-head"></div>
+            <div class="avatar-body"></div>
+            <div class="avatar-leg"></div>
+            <div class="avatar-leg right"></div>
+          </div>
+          <div class="preview-text">
+            <p id="previewAlias">Alias: &mdash;</p>
+            <p id="previewPronouns">Pronouns: they/them</p>
+            <p id="previewStyle">Style: Street Vanguard</p>
+            <p id="previewBackstory">Write a backstory to set the tone.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tutorialScreen" class="screen">
+      <div class="tutorial-grid">
+        <aside class="card objectives">
+          <h3>Objectives</h3>
+          <ol id="objectiveList"></ol>
+          <div class="accomplice card">
+            <h4>Your Accomplice</h4>
+            <p id="accompliceName">Unknown</p>
+            <p id="accompliceMood">Mood: calculating</p>
+          </div>
+          <div class="status card">
+            <h4>Heat Meter</h4>
+            <div class="heat-bar">
+              <div id="heatLevel" class="heat-fill"></div>
+            </div>
+          </div>
+        </aside>
+        <section class="card narrative">
+          <div class="narrative-header">
+            <h2 id="tutorialTitle">Tutorial</h2>
+            <p id="tutorialSubtitle">Rob the Midnight Express</p>
+          </div>
+          <div id="storyLog" class="story-log" aria-live="polite"></div>
+          <div class="action-panel">
+            <button id="actionBtn" class="primary-btn">Continue</button>
+            <button id="optionalBtn" class="ghost-btn" hidden></button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="game-footer">
+    Disorderly Conduct &middot; Atlas City Stories
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
