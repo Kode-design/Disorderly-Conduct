@@ -14,26 +14,26 @@
   <main>
     <header class="game-header">
       <h1>Disorderly Conduct</h1>
-      <p class="tagline">A low-res crime story about high stakes.</p>
+      <p class="tagline">Neon noir mayhem in a 2D side-scrolling city.</p>
     </header>
 
     <section id="menuScreen" class="screen visible">
       <div class="card">
         <h2>Main Menu</h2>
-        <p>Welcome to <strong>Disorderly Conduct</strong>. You're the up-and-coming troublemaker trying to survive Atlas City. Customize your criminal style and learn the ropes in a high-energy tutorial.</p>
+        <p>Welcome to <strong>Disorderly Conduct</strong>. Take control of an up-and-coming outlaw trying to carve a name into Atlas City's underworld. Start by customizing your look, then survive a side-scrolling tutorial heist.</p>
         <button id="startGameBtn" class="primary-btn">Start</button>
         <button id="viewCreditsBtn" class="ghost-btn">Credits</button>
         <div id="creditsPanel" class="collapsible" hidden>
           <p>Created by the Disorderly Conduct dev team.</p>
-          <p>Inspired by the chaotic freedom of classic open-world crime games.</p>
+          <p>Inspired by the rule-breaking freedom of classic crime stories.</p>
         </div>
       </div>
       <div class="menu-tips card">
         <h3>Tonight's Intel</h3>
         <ul>
-          <li>Atlas City's underbelly is restless. Opportunity knocks.</li>
-          <li>Stay cool. Keep your head when heat rises.</li>
-          <li>Trust no one—especially your getaway driver.</li>
+          <li>Atlas City's neon skyline hides plenty of shadows.</li>
+          <li>Keep moving—momentum is everything in a side scroller.</li>
+          <li>Trust no one, not even your getaway driver.</li>
         </ul>
       </div>
     </section>
@@ -114,16 +114,17 @@
             </div>
           </div>
         </aside>
-        <section class="card narrative">
-          <div class="narrative-header">
-            <h2 id="tutorialTitle">Tutorial</h2>
-            <p id="tutorialSubtitle">Rob the Midnight Express</p>
+        <section class="gameplay card">
+          <div class="gameplay-header">
+            <h2 id="tutorialTitle">Midnight Express Job</h2>
+            <p id="tutorialSubtitle">Side-scroll through Atlas City's back alleys.</p>
+          </div>
+          <canvas id="gameCanvas" width="960" height="540" role="presentation"></canvas>
+          <div class="hud">
+            <div class="hud-item" id="hudInstruction">Use A/D or &larr;/&rarr; to move, W or Space to jump.</div>
+            <div class="hud-item" id="hudAction"></div>
           </div>
           <div id="storyLog" class="story-log" aria-live="polite"></div>
-          <div class="action-panel">
-            <button id="actionBtn" class="primary-btn">Continue</button>
-            <button id="optionalBtn" class="ghost-btn" hidden></button>
-          </div>
         </section>
       </div>
     </section>

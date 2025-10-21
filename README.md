@@ -1,21 +1,21 @@
 # Disorderly Conduct
 
-Disorderly Conduct is a stylish single-page web experience inspired by open-world crime games. Create your outlaw persona, then dive straight into an interactive tutorial that walks you through robbing the Midnight Express convenience store. The night ends in cuffs, but it sets the tone for the chaos to come.
+Disorderly Conduct is a neon-drenched, single-page web game inspired by the scrappy chaos of classic crime stories. Create your outlaw persona, then drop into a fully playable 2D side-scrolling tutorial that escalates from sneaking through back alleys to a doomed getaway.
 
 ## Features
 
-- **Interactive main menu** with credits and flavour text that sets the mood for Atlas City.
-- **Character customization** including alias, pronouns, clothing style, accent colour, and backstory, complete with a live preview.
-- **Dynamic accomplice generation** that provides a unique partner and shifting mood readouts every run.
-- **Step-by-step tutorial** covering recon, intimidation, looting, and the inevitable police bust.
-- **Heat meter and story log** that track the escalating tension and capture your choices.
+- **Interactive main menu** with credits and flavour text to set the Atlas City mood.
+- **Character customization** covering alias, pronouns, street style, accent colour, and backstory with a live avatar preview.
+- **Dynamic accomplice generation** that assigns a randomly named partner and attitude for each run.
+- **Side-scrolling tutorial mission** where you move, jump, and interact with the Midnight Express convenience store to pull off the robbery.
+- **Heat meter, HUD, and story log** that react to your progress as the police close in.
 
 ## Getting Started
 
 1. Open `index.html` in any modern browser (Chrome, Firefox, Safari, Edge).
 2. Use the main menu to begin a new session.
-3. Customize your character’s details, then lock them in to launch the tutorial.
-4. Follow the prompts, read the narrative beats, and complete each objective to experience the full storyline.
+3. Customize your character’s details, then lock them in to launch the tutorial level.
+4. Use the keyboard controls (A/D or ←/→ to move, W or Space to jump, E to interact, Space to mash through the hold-up) to complete each objective.
 
 No build tools or servers are required—the project runs entirely in the browser.
 
@@ -30,4 +30,4 @@ No build tools or servers are required—the project runs entirely in the browse
 └── README.md
 ```
 
-Feel free to expand the project with additional missions, open-world systems, or audio/visual polish to evolve Disorderly Conduct into a larger experience.
+Feel free to expand the project with additional missions, cutscenes, or audio/visual polish to evolve Disorderly Conduct into a larger experience.

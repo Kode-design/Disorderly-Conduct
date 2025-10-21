@@ -1,525 +1,545 @@
 const screens = {
   menu: document.getElementById('menuScreen'),
   customization: document.getElementById('customizationScreen'),
-  tutorial: document.getElementById('tutorialScreen')
+  tutorial: document.getElementById('tutorialScreen'),
 };
 
 const buttons = {
-  start: document.getElementById('startGameBtn'),
-  credits: document.getElementById('viewCreditsBtn'),
-  action: document.getElementById('actionBtn'),
-  optional: document.getElementById('optionalBtn'),
-  randomize: document.getElementById('randomizeBtn')
+  startGame: document.getElementById('startGameBtn'),
+  viewCredits: document.getElementById('viewCreditsBtn'),
+  randomize: document.getElementById('randomizeBtn'),
 };
 
-const panels = {
-  credits: document.getElementById('creditsPanel'),
-  objectives: document.getElementById('objectiveList'),
-  storyLog: document.getElementById('storyLog'),
-  accompliceName: document.getElementById('accompliceName'),
-  accompliceMood: document.getElementById('accompliceMood'),
-  heatBar: document.getElementById('heatLevel'),
-  tutorialTitle: document.getElementById('tutorialTitle'),
-  tutorialSubtitle: document.getElementById('tutorialSubtitle')
-};
+const collapsible = document.getElementById('creditsPanel');
+const customizationForm = document.getElementById('customizationForm');
+const characterPreview = document.getElementById('characterPreview');
+const previewAlias = document.getElementById('previewAlias');
+const previewPronouns = document.getElementById('previewPronouns');
+const previewStyle = document.getElementById('previewStyle');
+const previewBackstory = document.getElementById('previewBackstory');
+const colorPicker = document.getElementById('accentColor');
 
-const previewEls = {
-  alias: document.getElementById('previewAlias'),
-  pronouns: document.getElementById('previewPronouns'),
-  style: document.getElementById('previewStyle'),
-  backstory: document.getElementById('previewBackstory'),
-  avatarBody: document.querySelector('.avatar-body')
-};
+const objectiveListEl = document.getElementById('objectiveList');
+const storyLogEl = document.getElementById('storyLog');
+const heatLevelEl = document.getElementById('heatLevel');
+const accompliceNameEl = document.getElementById('accompliceName');
+const accompliceMoodEl = document.getElementById('accompliceMood');
+const hudInstructionEl = document.getElementById('hudInstruction');
+const hudActionEl = document.getElementById('hudAction');
 
-const form = document.getElementById('customizationForm');
-const fields = {
-  name: document.getElementById('playerName'),
-  pronouns: document.getElementById('playerPronouns'),
-  style: document.getElementById('playerStyle'),
-  color: document.getElementById('accentColor'),
-  backstory: document.getElementById('backstory')
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const playerStyles = {
+  street: { label: 'Street Vanguard', accent: '#ff4f5a' },
+  sleek: { label: 'Sleek Minimalist', accent: '#46d1ff' },
+  punk: { label: 'Neon Punk', accent: '#ff70ff' },
+  retro: { label: 'Retro Hustler', accent: '#ffd166' },
 };
 
 const accompliceNames = [
-  'Jax "Overdrive" Malloy',
-  'Rhea "Bitflip" Calder',
-  'Micah "Skids" Navarro',
-  'Avery "Ghost" Tanaka',
-  'Kato "Blink" Moreau',
-  'Sable "Quickdraw" Vega',
-  'Rook "Switchblade" Ortiz'
+  'Switchback',
+  'Moxie Vega',
+  'Recoil',
+  'Flux Hart',
+  'Jinx Verona',
+  'Hexline',
+  'Vapor Kane',
+  'Coda Lyn',
 ];
 
-const styles = {
-  street: 'Street Vanguard',
-  sleek: 'Sleek Minimalist',
-  punk: 'Neon Punk',
-  retro: 'Retro Hustler'
-};
+const accompliceMoods = ['antsy', 'focused', 'calculating', 'reckless', 'stone-cold', 'impatient'];
 
-const state = {
-  playerName: '',
-  pronouns: fields.pronouns.value,
-  style: fields.style.value,
-  color: fields.color.value,
-  backstory: '',
-  accomplice: '',
-  heat: 12,
-  currentStep: 0,
-  currentAction: 0,
-  tutorialComplete: false
-};
+const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-const tutorialSteps = [
-  {
-    id: 'rendezvous',
-    title: 'Rendezvous Outside the Midnight Express',
-    subtitle: 'Nerves hum louder than the neon.',
-    intro: (alias, accomplice) =>
-      `${alias} meets ${accomplice} beside a flickering holo-sign. Rain-slick streets mirror the city glow as the plan clicks into place.`,
-    objectiveId: 'meet-up',
-    actions: [
-      {
-        label: 'Check the gear',
-        logTitle: 'Loadout Check',
-        logText: 'You pat down your jacket—mask, voice modulator, pocket jammer. Everything sits where it should. ${accomplice} nods, approving.',
-        heat: 4
-      },
-      {
-        label: 'Exchange the code phrase',
-        logTitle: 'Signal Locked',
-        logText: '“No sleep for Atlas,” you whisper. “Not tonight,” ${accomplice} smirks back. The plan is officially live.',
-        heat: 3
-      }
-    ],
-    optionalAction: {
-      label: 'Ask about the getaway route',
-      logTitle: 'Route Recap',
-      logText: '${accomplice} taps a map on their holo-pad. “Two blocks east, stash car in the alley. If we split, you cut south.”',
-      mood: 'focused'
-    }
-  },
-  {
-    id: 'scouting',
-    title: 'Case the Convenience Store',
-    subtitle: 'Every detail counts.',
-    intro: (alias, accomplice) =>
-      `${accomplice} keeps lookout while ${alias} studies the store. Flickers in the camera feed hint at exploitable blind spots.`,
-    objectiveId: 'case-store',
-    actions: [
-      {
-        label: 'Map the cameras',
-        logTitle: 'Camera Sweep',
-        logText: 'The corner cameras loop every twelve seconds. You set a silent ping on your wrist HUD to stay in sync.',
-        heat: 6
-      },
-      {
-        label: 'Time the door chime',
-        logTitle: 'Sound Off',
-        logText: 'You open the door a crack, counting the milliseconds before the chime cuts. With the jammer ready, you can ghost in unnoticed.',
-        heat: 5
-      }
-    ],
-    optionalAction: {
-      label: 'Reassure your partner',
-      logTitle: 'Confidence Boost',
-      logText: '“We got this,” you tell ${accomplice}. They inhale, steel-eyed again. “Right. Let’s rewrite the night.”',
-      mood: 'steady'
-    }
-  },
-  {
-    id: 'entry',
-    title: 'Slip Inside',
-    subtitle: 'No alarms. No witnesses.',
-    intro: (alias) =>
-      `${alias} triggers the pocket jammer. The door sighs open—silent, seamless. Refrigerated air and stale coffee hit hard.`,
-    objectiveId: 'enter-store',
-    actions: [
-      {
-        label: 'Lock the door behind you',
-        logTitle: 'Secured Entrance',
-        logText: 'You flip the bolt without a sound. Rain muffles the world outside. It’s just you, ${accomplice}, and the clerk.',
-        heat: 8
-      },
-      {
-        label: 'Make contact with the clerk',
-        logTitle: 'Intimidation Tactic',
-        logText: 'You raise your voice modulator. “Hands visible, easy now.” The clerk freezes, eyes wide, hands up.',
-        heat: 10
-      }
-    ]
-  },
-  {
-    id: 'register',
-    title: 'Crack the Register',
-    subtitle: 'Stay smooth under the neon glare.',
-    intro: () =>
-      'The register hums with stored credits. The clerk fumbles with the drawer while sweat beads on their brow.',
-    objectiveId: 'hit-register',
-    actions: [
-      {
-        label: 'Direct the clerk',
-        logTitle: 'Command Presence',
-        logText: '“No sudden moves.” The drawer pops. Bills, cred-chips, and lottery packs glint invitingly.',
-        heat: 12
-      },
-      {
-        label: 'Sweep the take',
-        logTitle: 'Score Secured',
-        logText: 'You empty the drawer into the duffel, prioritising cred-chips. ${accomplice} watches the security mirror for movement.',
-        heat: 9
-      }
-    ],
-    optionalAction: {
-      label: 'Grab a mystery energy drink',
-      logTitle: 'Impulse Purchase',
-      logText: 'Because why not? You snag a glowing can labeled “Nebula Surge.” ${accomplice} raises an eyebrow but grins.',
-      mood: 'amused'
-    }
-  },
-  {
-    id: 'escape',
-    title: 'Make the Escape',
-    subtitle: 'Heat rising. Time to run.',
-    intro: (alias, accomplice) =>
-      `${alias} signals ${accomplice}. You move in sync—aisles, door, alley. But the distant siren crescendos.`,
-    objectiveId: 'escape',
-    actions: [
-      {
-        label: 'Head for the alley',
-        logTitle: 'Exit Strategy',
-        logText: 'You dash through the rain, shoes splashing neon puddles. A siren wails louder—closer.',
-        heat: 14
-      },
-      {
-        label: 'Dive into cover',
-        logTitle: 'Cornered',
-        logText: 'A patrol car fishtails into the alley mouth. Headlights carve through the dark. There’s nowhere to run.',
-        heat: 20
-      }
-    ]
-  },
-  {
-    id: 'capture',
-    title: 'The Bust',
-    subtitle: 'Trust fractures under blue lights.',
-    intro: (alias, accomplice) =>
-      `Police flood the alley. ${accomplice} hesitates, then backs away. “Sorry, ${alias}. Survival first.”`,
-    objectiveId: 'capture',
-    actions: [
-      {
-        label: 'Drop the bag',
-        logTitle: 'Hands Up',
-        logText: 'Floodlights swallow you whole. You let the duffel fall, hands interlaced behind your head. Voices bark commands.',
-        heat: 5
-      },
-      {
-        label: 'Watch your partner vanish',
-        logTitle: 'Left Behind',
-        logText: '${accomplice} slips into the shadows, leaving you cuffed on the pavement. The sirens drown the betrayal.',
-        heat: 0
-      }
-    ],
-    finale: true
+function showScreen(target) {
+  Object.values(screens).forEach((screen) => screen.classList.remove('visible'));
+  screens[target].classList.add('visible');
+}
+
+buttons.startGame.addEventListener('click', () => showScreen('customization'));
+
+buttons.viewCredits.addEventListener('click', () => {
+  const isHidden = collapsible.hasAttribute('hidden');
+  if (isHidden) {
+    collapsible.removeAttribute('hidden');
+    buttons.viewCredits.textContent = 'Hide Credits';
+  } else {
+    collapsible.setAttribute('hidden', '');
+    buttons.viewCredits.textContent = 'Credits';
   }
-];
-
-buttons.start.addEventListener('click', () => {
-  showScreen('customization');
-  fields.name.focus();
 });
 
-buttons.credits.addEventListener('click', () => {
-  panels.credits.hidden = !panels.credits.hidden;
-  buttons.credits.textContent = panels.credits.hidden ? 'Credits' : 'Hide Credits';
-});
+const formFields = {
+  name: document.getElementById('playerName'),
+  pronouns: document.getElementById('playerPronouns'),
+  style: document.getElementById('playerStyle'),
+  backstory: document.getElementById('backstory'),
+};
+
+function updatePreview() {
+  const name = formFields.name.value.trim();
+  previewAlias.innerHTML = `Alias: ${name ? name : '&mdash;'}`;
+  previewPronouns.textContent = `Pronouns: ${formFields.pronouns.value}`;
+  previewStyle.textContent = `Style: ${playerStyles[formFields.style.value].label}`;
+  previewBackstory.textContent = formFields.backstory.value.trim()
+    ? formFields.backstory.value
+    : 'Write a backstory to set the tone.';
+
+  const accent = colorPicker.value;
+  characterPreview.style.setProperty('--accent-color', accent);
+}
+
+Object.values(formFields).forEach((field) => field.addEventListener('input', updatePreview));
+colorPicker.addEventListener('input', updatePreview);
 
 buttons.randomize.addEventListener('click', () => {
-  randomizeCharacter();
+  const aliasSamples = ['Nova', 'Knox', 'Sable', 'Riot', 'Echo', 'Glitch'];
+  formFields.name.value = aliasSamples[randomBetween(0, aliasSamples.length - 1)];
+  const pronounOptions = Array.from(formFields.pronouns.options).map((opt) => opt.value);
+  formFields.pronouns.value = pronounOptions[randomBetween(0, pronounOptions.length - 1)];
+  const styleOptions = Object.keys(playerStyles);
+  formFields.style.value = styleOptions[randomBetween(0, styleOptions.length - 1)];
+  const sampleBackstories = [
+    'Boosted bikes for the Ironside Syndicate until they sold me out.',
+    'Raised by street racers. Learned crime and courtesy at 200 mph.',
+    'Grew up splicing security cams for kicks. Now the cams watch for me.',
+    'Atlas City DJ by day, debt collector by night.',
+  ];
+  formFields.backstory.value = sampleBackstories[randomBetween(0, sampleBackstories.length - 1)];
+  colorPicker.value = `#${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0')}`;
   updatePreview();
 });
 
-form.addEventListener('input', updatePreview);
+const profile = {
+  alias: '',
+  pronouns: 'they/them',
+  style: 'street',
+  accentColor: '#ff4f5a',
+  backstory: '',
+};
 
-form.addEventListener('submit', (event) => {
-  event.preventDefault();
-  if (!form.reportValidity()) {
-    return;
-  }
+let accomplice = {
+  name: '',
+  mood: 'focused',
+};
 
-  state.playerName = fields.name.value.trim() || 'Unknown';
-  state.pronouns = fields.pronouns.value;
-  state.style = fields.style.value;
-  state.color = fields.color.value;
-  state.backstory = fields.backstory.value.trim();
-  state.accomplice = generateAccompliceName();
-  state.heat = 12;
-  state.currentStep = 0;
-  state.currentAction = 0;
-  state.tutorialComplete = false;
+let objectives = [];
 
-  startTutorial();
-});
-
-buttons.action.addEventListener('click', () => {
-  if (state.tutorialComplete) {
-    resetToMenu();
-    return;
-  }
-
-  handleAction();
-});
-
-buttons.optional.addEventListener('click', () => {
-  const step = tutorialSteps[state.currentStep];
-  if (!step || !step.optionalAction || step.optionalAction.completed) {
-    return;
-  }
-
-  const optional = step.optionalAction;
-  appendStory(optional.logTitle, templateText(optional.logText));
-  updateAccompliceMood(optional.mood || 'steady');
-  optional.completed = true;
-  buttons.optional.hidden = true;
-});
-
-function showScreen(target) {
-  Object.entries(screens).forEach(([key, el]) => {
-    el.classList.toggle('visible', key === target);
-  });
-}
-
-function randomizeCharacter() {
-  const randomAliases = ['Nova', 'Spitfire', 'Chrome', 'Cipher', 'Nova Blade', 'Riot', 'Echo'];
-  const randomBackstories = [
-    'Raised in the warehouses by contraband smugglers, you know every dockworker by name.',
-    'Former street racer turned fixer after a betrayal in the Atlas Grand Prix.',
-    'Ex-corporate analyst who siphoned funds and vanished into the undercity.',
-    'Child of a legendary hustler—reputation is your inheritance, and your burden.'
-  ];
-
-  fields.name.value = randomAliases[Math.floor(Math.random() * randomAliases.length)];
-  const pronounOptions = Array.from(fields.pronouns.options);
-  fields.pronouns.value = pronounOptions[Math.floor(Math.random() * pronounOptions.length)].value;
-  const styleOptions = Object.keys(styles);
-  fields.style.value = styleOptions[Math.floor(Math.random() * styleOptions.length)];
-  fields.color.value = `#${Math.floor(Math.random() * 0xffffff)
-    .toString(16)
-    .padStart(6, '0')}`;
-  fields.backstory.value = randomBackstories[Math.floor(Math.random() * randomBackstories.length)];
-}
-
-function updatePreview() {
-  const alias = fields.name.value.trim() || '—';
-  previewEls.alias.textContent = `Alias: ${alias}`;
-  previewEls.pronouns.textContent = `Pronouns: ${fields.pronouns.value}`;
-  previewEls.style.textContent = `Style: ${styles[fields.style.value]}`;
-  previewEls.backstory.textContent = fields.backstory.value.trim()
-    ? fields.backstory.value.trim()
-    : 'Write a backstory to set the tone.';
-  previewEls.avatarBody.style.background = fields.color.value;
-}
-
-function startTutorial() {
-  showScreen('tutorial');
-  panels.storyLog.innerHTML = '';
-  panels.tutorialTitle.textContent = 'Tutorial: Robbery 101';
-  panels.tutorialSubtitle.textContent = 'Midnight Express Convenience Store';
-  updateAccompliceMood('calculating');
-  panels.accompliceName.textContent = state.accomplice;
-
-  populateObjectives();
-
-  const step = tutorialSteps[state.currentStep];
-  if (step) {
-    appendStory(step.title, templateText(step.intro(state.playerName, state.accomplice)));
-  }
-
-  state.currentAction = 0;
-  updateHeat(state.heat, true);
-  refreshActionButtons();
-}
-
-function handleAction() {
-  const step = tutorialSteps[state.currentStep];
-
-  if (!step) {
-    concludeTutorial();
-    return;
-  }
-
-  const action = step.actions[state.currentAction];
-
-  if (!action) {
-    completeStep();
-    return;
-  }
-
-  appendStory(action.logTitle, templateText(action.logText));
-  updateHeat(action.heat);
-  state.currentAction += 1;
-
-  if (state.currentAction >= step.actions.length) {
-    completeStep();
-  } else {
-    refreshActionButtons();
-  }
-}
-
-function completeStep() {
-  const step = tutorialSteps[state.currentStep];
-
-  if (!step) {
-    concludeTutorial();
-    return;
-  }
-
-  markObjectiveComplete(step.objectiveId);
-  updateAccompliceMood(step.finale ? 'distant' : 'wired');
-
-  if (step.finale) {
-    concludeTutorial();
-    return;
-  }
-
-  state.currentStep += 1;
-  state.currentAction = 0;
-  const nextStep = tutorialSteps[state.currentStep];
-  if (nextStep) {
-    appendStory(nextStep.title, templateText(nextStep.intro(state.playerName, state.accomplice)));
-  }
-  refreshActionButtons();
-}
-
-function concludeTutorial() {
-  if (state.tutorialComplete) {
-    return;
-  }
-
-  appendStory('Tutorial Complete', `${state.playerName} is cuffed, loaded into the cruiser, and left to plot their next move. The city will hear from them again.`);
-  panels.tutorialSubtitle.textContent = 'Booked and processed.';
-  state.tutorialComplete = true;
-  buttons.action.textContent = 'Return to Menu';
-  buttons.optional.hidden = true;
-}
-
-function resetToMenu() {
-  showScreen('menu');
-  buttons.action.textContent = 'Continue';
-  state.tutorialComplete = false;
-  tutorialSteps.forEach((step) => {
-    if (step.optionalAction) {
-      step.optionalAction.completed = false;
-    }
-  });
-  Array.from(panels.objectives.querySelectorAll('li')).forEach((li) => li.remove());
-  panels.storyLog.innerHTML = '';
-  panels.credits.hidden = true;
-  buttons.credits.textContent = 'Credits';
-}
-
-function refreshActionButtons() {
-  const step = tutorialSteps[state.currentStep];
-
-  if (!step) {
-    buttons.action.textContent = 'Continue';
-    buttons.optional.hidden = true;
-    return;
-  }
-
-  const action = step.actions[state.currentAction];
-  buttons.action.textContent = action ? action.label : 'Continue';
-
-  if (step.optionalAction && !step.optionalAction.completed) {
-    buttons.optional.hidden = false;
-    buttons.optional.textContent = step.optionalAction.label;
-  } else {
-    buttons.optional.hidden = true;
-  }
-}
-
-function populateObjectives() {
-  const objectives = [
-    { id: 'meet-up', text: `Meet your accomplice ${state.accomplice} outside the Midnight Express.` },
-    { id: 'case-store', text: 'Scout the store and identify surveillance blind spots.' },
-    { id: 'enter-store', text: 'Enter the shop without triggering alarms.' },
-    { id: 'hit-register', text: 'Control the clerk and empty the register.' },
-    { id: 'escape', text: 'Escape through the alley before the cops arrive.' },
-    { id: 'capture', text: 'Face the consequences when the heat catches up.' }
-  ];
-
-  panels.objectives.innerHTML = '';
+function updateObjectives() {
+  objectiveListEl.innerHTML = '';
   objectives.forEach((objective) => {
     const li = document.createElement('li');
-    li.dataset.id = objective.id;
     li.textContent = objective.text;
-    panels.objectives.appendChild(li);
+    if (objective.completed) {
+      li.classList.add('completed');
+    }
+    objectiveListEl.appendChild(li);
   });
 }
 
-function markObjectiveComplete(id) {
-  const li = panels.objectives.querySelector(`li[data-id="${id}"]`);
-  if (li) {
-    li.classList.add('completed');
+function addStoryLog(message) {
+  const entry = document.createElement('p');
+  entry.textContent = message;
+  storyLogEl.appendChild(entry);
+  storyLogEl.scrollTop = storyLogEl.scrollHeight;
+}
+
+const game = {
+  worldWidth: 3200,
+  groundHeight: 440,
+  gravity: 0.9,
+  player: null,
+  platforms: [],
+  pickups: [],
+  store: { x: 1320, width: 320, height: 220 },
+  getawayVan: { x: 2800, width: 180, height: 120 },
+  police: [],
+  keys: {},
+  stage: 'approach',
+  running: false,
+  holdUp: {
+    active: false,
+    progress: 0,
+    needed: 8,
+  },
+  captureTimer: 0,
+  lastTimestamp: 0,
+  cameraX: 0,
+};
+
+class Player {
+  constructor(x, y, color) {
+    this.x = x;
+    this.y = y;
+    this.width = 48;
+    this.height = 72;
+    this.color = color;
+    this.velocity = { x: 0, y: 0 };
+    this.onGround = false;
+    this.facing = 1;
+  }
+
+  update(delta) {
+    const acceleration = 0.55;
+    const maxSpeed = 6.5;
+
+    if (!game.holdUp.active && !['captured', 'postCapture'].includes(game.stage)) {
+      if (game.keys['ArrowLeft'] || game.keys['a']) {
+        this.velocity.x = Math.max(this.velocity.x - acceleration, -maxSpeed);
+        this.facing = -1;
+      } else if (game.keys['ArrowRight'] || game.keys['d']) {
+        this.velocity.x = Math.min(this.velocity.x + acceleration, maxSpeed);
+        this.facing = 1;
+      } else {
+        this.velocity.x *= 0.7;
+        if (Math.abs(this.velocity.x) < 0.1) this.velocity.x = 0;
+      }
+    } else {
+      this.velocity.x *= 0.75;
+    }
+
+    if ((game.keys['ArrowUp'] || game.keys['w'] || game.keys[' ']) && this.onGround && !game.holdUp.active) {
+      this.velocity.y = -15;
+      this.onGround = false;
+    }
+
+    this.velocity.y += game.gravity;
+
+    this.x += this.velocity.x * delta;
+    this.y += this.velocity.y * delta;
+
+    if (this.y + this.height >= game.groundHeight) {
+      this.y = game.groundHeight - this.height;
+      this.velocity.y = 0;
+      this.onGround = true;
+    }
+
+    // clamp within world
+    this.x = Math.max(0, Math.min(game.worldWidth - this.width, this.x));
+  }
+
+  draw(context, cameraX) {
+    const drawX = this.x - cameraX;
+    context.save();
+    context.translate(drawX + this.width / 2, this.y + this.height / 2);
+    context.scale(this.facing, 1);
+    context.translate(-this.width / 2, -this.height / 2);
+
+    context.fillStyle = this.color;
+    context.fillRect(6, 0, this.width - 12, this.height - 20);
+    context.fillStyle = '#12131c';
+    context.fillRect(0, this.height - 20, this.width, 20);
+    context.fillStyle = '#ffd3d3';
+    context.fillRect(12, 8, this.width - 24, 18);
+    context.fillStyle = '#07080f';
+    context.fillRect(this.width / 2 - 6, this.height - 20, 12, 20);
+
+    context.restore();
   }
 }
 
-function appendStory(title, text) {
-  const entry = document.createElement('article');
-  entry.classList.add('story-entry');
+class PoliceCar {
+  constructor(x) {
+    this.x = x;
+    this.y = game.groundHeight - 60;
+    this.width = 110;
+    this.height = 60;
+    this.lightsPhase = 0;
+  }
 
-  const heading = document.createElement('h4');
-  heading.textContent = title;
-  entry.appendChild(heading);
+  update(delta) {
+    this.lightsPhase += delta * 0.1;
+  }
 
-  const body = document.createElement('p');
-  body.innerHTML = text;
-  entry.appendChild(body);
-
-  panels.storyLog.appendChild(entry);
-  panels.storyLog.scrollTo({ top: panels.storyLog.scrollHeight, behavior: 'smooth' });
+  draw(context, cameraX) {
+    const drawX = this.x - cameraX;
+    context.fillStyle = '#1b274a';
+    context.fillRect(drawX, this.y, this.width, this.height);
+    context.fillStyle = '#f5f5f5';
+    context.fillRect(drawX + 10, this.y + 18, this.width - 20, 24);
+    const lightColor = Math.sin(this.lightsPhase) > 0 ? '#ff4f5a' : '#46d1ff';
+    context.fillStyle = lightColor;
+    context.fillRect(drawX + 12, this.y - 12, 20, 12);
+    context.fillStyle = lightColor === '#ff4f5a' ? '#46d1ff' : '#ff4f5a';
+    context.fillRect(drawX + this.width - 32, this.y - 12, 20, 12);
+  }
 }
 
-function updateHeat(amount, override = false) {
-  if (override) {
-    state.heat = amount;
+function setupLevel() {
+  game.player = new Player(80, game.groundHeight - 72, profile.accentColor);
+  game.stage = 'approach';
+  game.holdUp.active = false;
+  game.holdUp.progress = 0;
+  game.captureTimer = 0;
+  game.cameraX = 0;
+  game.police = [];
+  hudInstructionEl.textContent = 'Use A/D or ←/→ to move, W or Space to jump.';
+  hudActionEl.textContent = '';
+  storyLogEl.innerHTML = '';
+  addStoryLog(`${profile.alias} and ${accomplice.name} pull up behind the Midnight Express.`);
+  addStoryLog(`${accomplice.name}: "Five minutes in and out. Don\'t get sentimental."`);
+  objectives = [
+    { text: 'Reach the Midnight Express store entrance.', completed: false },
+    { text: 'Intimidate the clerk and grab the cash.', completed: false },
+    { text: 'Dash to the getaway van.', completed: false },
+  ];
+  updateObjectives();
+  updateHeat(15);
+}
+
+function updateHeat(level) {
+  heatLevelEl.style.width = `${level}%`;
+}
+
+function generateAccomplice() {
+  const name = accompliceNames[randomBetween(0, accompliceNames.length - 1)];
+  const mood = accompliceMoods[randomBetween(0, accompliceMoods.length - 1)];
+  accomplice = { name, mood };
+  accompliceNameEl.textContent = name;
+  accompliceMoodEl.textContent = `Mood: ${mood}`;
+}
+
+customizationForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  profile.alias = formFields.name.value.trim() || 'Ghost';
+  profile.pronouns = formFields.pronouns.value;
+  profile.style = formFields.style.value;
+  profile.accentColor = colorPicker.value;
+  profile.backstory = formFields.backstory.value.trim();
+
+  generateAccomplice();
+  setupLevel();
+  showScreen('tutorial');
+  startGameLoop();
+});
+
+function handleObjectiveProgress() {
+  if (game.stage === 'approach') {
+    const playerCenter = game.player.x + game.player.width / 2;
+    const storeEntrance = game.store.x + game.store.width / 2;
+    if (Math.abs(playerCenter - storeEntrance) < 80 && game.player.onGround) {
+      hudActionEl.textContent = 'Press E to confront the clerk.';
+      if (game.keys['e'] || game.keys['E']) {
+        beginHoldUp();
+      }
+    } else {
+      hudActionEl.textContent = '';
+    }
+  } else if (game.stage === 'escape' && !['captured', 'postCapture'].includes(game.stage)) {
+    if (game.player.x + game.player.width > game.getawayVan.x + 40) {
+      triggerCapture();
+    }
+  }
+
+  if (game.holdUp.active) {
+    hudActionEl.textContent = 'Mash SPACE to fill the duffel!';
+  }
+}
+
+function beginHoldUp() {
+  game.stage = 'holdUp';
+  game.holdUp.active = true;
+  game.holdUp.progress = 0;
+  objectives[0].completed = true;
+  addStoryLog(`${profile.alias} kicks the door in. ${accomplice.name} posts up by the door.`);
+  updateObjectives();
+  updateHeat(55);
+}
+
+window.addEventListener('keydown', (event) => {
+  game.keys[event.key] = true;
+  if (game.holdUp.active && event.key === ' ') {
+    game.holdUp.progress += 1;
+    if (game.holdUp.progress >= game.holdUp.needed) {
+      completeHoldUp();
+    }
+  }
+});
+
+window.addEventListener('keyup', (event) => {
+  delete game.keys[event.key];
+});
+
+function completeHoldUp() {
+  game.holdUp.active = false;
+  game.stage = 'escape';
+  objectives[1].completed = true;
+  hudActionEl.textContent = 'Sprint to the van!';
+  addStoryLog('The clerk freezes. Cash drawer emptied into your duffel.');
+  addStoryLog(`${accomplice.name}: "Sirens already wailing. Move!"`);
+  updateObjectives();
+  updateHeat(85);
+}
+
+function triggerCapture() {
+  game.stage = 'captured';
+  objectives[2].completed = true;
+  updateObjectives();
+  hudActionEl.textContent = '';
+  addStoryLog('Police cruisers scream around the corner. An ambush.');
+  addStoryLog(`${accomplice.name} guns the engine and bolts, leaving you surrounded.`);
+  updateHeat(100);
+  setTimeout(() => {
+    game.stage = 'postCapture';
+    addStoryLog('Atlas City PD: "On your knees! Hands where we can see them!"');
+    addStoryLog(`${profile.alias} is cuffed on the asphalt as ${accomplice.name} disappears into the night.`);
+    hudInstructionEl.textContent = 'Tutorial complete. Disorderly Conduct has only just begun...';
+  }, 1800);
+
+  // spawn police cars for dramatic effect
+  game.police.push(new PoliceCar(game.player.x + 180));
+  game.police.push(new PoliceCar(game.player.x - 260));
+}
+
+function startGameLoop() {
+  if (game.running) return;
+  game.running = true;
+  game.lastTimestamp = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function loop(timestamp) {
+  if (!game.running) return;
+  const delta = Math.min((timestamp - game.lastTimestamp) / 16.67, 2);
+  game.lastTimestamp = timestamp;
+
+  update(delta);
+  draw();
+
+  requestAnimationFrame(loop);
+}
+
+function update(delta) {
+  if (!game.player) return;
+  game.player.update(delta);
+
+  game.cameraX = Math.max(0, Math.min(game.player.x - canvas.width / 2 + game.player.width / 2, game.worldWidth - canvas.width));
+
+  handleObjectiveProgress();
+
+  if (game.stage === 'captured') {
+    game.police.forEach((car) => {
+      if (car.x > game.player.x + 90) {
+        car.x -= 4 * delta;
+      }
+      if (car.x < game.player.x - 200) {
+        car.x += 2 * delta;
+      }
+      car.update(delta);
+    });
   } else {
-    state.heat = Math.min(100, state.heat + amount);
-  }
-
-  panels.heatBar.style.width = `${Math.min(100, state.heat)}%`;
-
-  if (state.heat < 35) {
-    panels.heatBar.style.background = 'linear-gradient(90deg, #47d7ac, #58e1c1)';
-  } else if (state.heat < 70) {
-    panels.heatBar.style.background = 'linear-gradient(90deg, #f5d547, #ff9f4f)';
-  } else {
-    panels.heatBar.style.background = 'linear-gradient(90deg, #ff4f5a, #a126b0)';
+    game.police.forEach((car) => car.update(delta));
   }
 }
 
-function updateAccompliceMood(mood) {
-  const moodDescriptions = {
-    calculating: 'Mood: calculating',
-    focused: 'Mood: focused',
-    steady: 'Mood: steady',
-    wired: 'Mood: wired',
-    amused: 'Mood: amused',
-    distant: 'Mood: distant'
-  };
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  panels.accompliceMood.textContent = moodDescriptions[mood] || `Mood: ${mood}`;
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, '#080b16');
+  gradient.addColorStop(1, '#141d33');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawBackground(cityLayers, 0.2);
+  drawBackground(midgroundLayers, 0.5);
+  drawGround();
+  drawStore();
+  drawGetawayVan();
+
+  game.police.forEach((car) => car.draw(ctx, game.cameraX));
+
+  if (game.player) {
+    game.player.draw(ctx, game.cameraX);
+  }
+
+  if (game.holdUp.active) {
+    drawHoldUpMeter();
+  }
 }
 
-function templateText(text) {
-  return text
-    .replace(/\${alias}/g, state.playerName || 'You')
-    .replace(/\${accomplice}/g, state.accomplice || 'your accomplice');
+const cityLayers = [
+  { color: 'rgba(57, 79, 136, 0.45)', height: 220, offset: 0 },
+  { color: 'rgba(90, 118, 196, 0.4)', height: 260, offset: 120 },
+  { color: 'rgba(40, 58, 102, 0.55)', height: 200, offset: 220 },
+];
+
+const midgroundLayers = [
+  { color: 'rgba(26, 32, 52, 1)', height: 160, offset: 40 },
+  { color: 'rgba(31, 43, 73, 1)', height: 140, offset: 110 },
+];
+
+function drawBackground(layers, parallax) {
+  layers.forEach((layer, index) => {
+    const speed = parallax + index * 0.1;
+    const baseY = canvas.height - layer.height - layer.offset;
+    const patternWidth = 320;
+    const offsetX = -(game.cameraX * speed) % patternWidth;
+
+    ctx.fillStyle = layer.color;
+    for (let x = offsetX - patternWidth; x < canvas.width + patternWidth; x += patternWidth) {
+      ctx.fillRect(x, baseY, patternWidth * 0.7, layer.height);
+      ctx.fillRect(x + patternWidth * 0.75, baseY + 20, patternWidth * 0.25, layer.height - 20);
+    }
+  });
 }
 
-function generateAccompliceName() {
-  return accompliceNames[Math.floor(Math.random() * accompliceNames.length)];
+function drawGround() {
+  ctx.fillStyle = '#05070f';
+  ctx.fillRect(0, game.groundHeight, canvas.width, canvas.height - game.groundHeight);
+
+  ctx.fillStyle = '#1d263b';
+  const stripeWidth = 64;
+  const offset = -(game.cameraX * 1.1) % stripeWidth;
+  for (let x = offset - stripeWidth; x < canvas.width + stripeWidth; x += stripeWidth) {
+    ctx.fillRect(x, game.groundHeight, stripeWidth / 2, 10);
+  }
 }
 
-// Initialize preview state for first render
+function drawStore() {
+  const drawX = game.store.x - game.cameraX;
+  ctx.fillStyle = '#161d2f';
+  ctx.fillRect(drawX, game.groundHeight - game.store.height, game.store.width, game.store.height);
+
+  ctx.fillStyle = '#2e3a5d';
+  ctx.fillRect(drawX + 18, game.groundHeight - game.store.height + 24, game.store.width - 36, game.store.height - 48);
+
+  ctx.fillStyle = '#f9f871';
+  ctx.fillRect(drawX + 40, game.groundHeight - game.store.height + 18, game.store.width - 80, 24);
+  ctx.fillStyle = '#141b2f';
+  ctx.font = '16px "Rajdhani", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('MIDNIGHT EXPRESS', drawX + game.store.width / 2, game.groundHeight - game.store.height + 36);
+}
+
+function drawGetawayVan() {
+  const drawX = game.getawayVan.x - game.cameraX;
+  ctx.fillStyle = '#252a3f';
+  ctx.fillRect(drawX, game.groundHeight - game.getawayVan.height, game.getawayVan.width, game.getawayVan.height);
+  ctx.fillStyle = '#141825';
+  ctx.fillRect(drawX + 20, game.groundHeight - game.getawayVan.height + 20, game.getawayVan.width - 40, 40);
+  ctx.fillStyle = '#46d1ff';
+  ctx.fillRect(drawX + 24, game.groundHeight - game.getawayVan.height + 24, game.getawayVan.width - 48, 32);
+}
+
+function drawHoldUpMeter() {
+  const width = 320;
+  const height = 28;
+  const x = canvas.width / 2 - width / 2;
+  const y = 80;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.fillRect(x, y, width, height);
+  ctx.fillStyle = profile.accentColor;
+  const progressWidth = (game.holdUp.progress / game.holdUp.needed) * width;
+  ctx.fillRect(x, y, progressWidth, height);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, width, height);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '14px "Space Grotesk", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Stuffing the duffel...', canvas.width / 2, y - 8);
+}
+
 updatePreview();
