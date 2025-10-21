@@ -16,12 +16,17 @@ const closeHowToPlay = document.getElementById('closeHowToPlay');
 const backToMenuButton = document.getElementById('backToMenu');
 const beginTutorialButton = document.getElementById('beginTutorial');
 const restartButton = document.getElementById('restartButton');
+const randomAliasButton = document.getElementById('randomAlias');
+const randomizeLookButton = document.getElementById('randomizeLook');
 
 const aliasInput = document.getElementById('aliasInput');
 const jacketColorInput = document.getElementById('jacketColor');
 const pantsColorInput = document.getElementById('pantsColor');
 const accentColorInput = document.getElementById('accentColor');
+const gloveColorInput = document.getElementById('gloveColor');
+const shoeColorInput = document.getElementById('shoeColor');
 const maskStyleSelect = document.getElementById('maskStyle');
+const attitudeSelect = document.getElementById('attitude');
 
 const preview = document.getElementById('characterPreview');
 const previewHead = preview.querySelector('.head');
@@ -29,12 +34,20 @@ const previewMask = preview.querySelector('.mask');
 const previewBody = preview.querySelector('.body');
 const previewLegs = preview.querySelector('.legs');
 const previewAccent = preview.querySelector('.accent');
+const previewHands = preview.querySelector('.hands');
+const previewShoes = preview.querySelector('.shoes');
 
 const objectiveEl = document.getElementById('objective');
 const dialogueEl = document.getElementById('dialogue');
 const statusEl = document.getElementById('status');
+const heatPanel = document.getElementById('heatPanel');
+const heatFill = heatPanel.querySelector('.meter-fill');
+const heatNote = heatPanel.querySelector('.meter-note');
+const intelLog = document.getElementById('intelLog');
 const endOverlay = document.getElementById('endOverlay');
 const endSummary = document.getElementById('endSummary');
+const minigameOverlayEl = document.getElementById('minigameOverlay');
+const minigameAbortButton = document.getElementById('minigameAbort');
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -70,11 +83,15 @@ function updatePreview() {
   const jacket = jacketColorInput.value;
   const pants = pantsColorInput.value;
   const accent = accentColorInput.value;
+  const gloves = gloveColorInput.value;
+  const shoes = shoeColorInput.value;
   const maskStyle = maskStyleSelect.value;
 
   previewBody.style.background = jacket;
   previewLegs.style.background = pants;
   previewAccent.style.background = accent;
+  previewHands.style.background = gloves;
+  previewShoes.style.background = shoes;
   previewMask.style.background = maskStyle === 'none' ? 'transparent' : accent;
   previewHead.style.background = maskStyle === 'full' ? '#111821' : '#d1a87c';
 
@@ -82,11 +99,30 @@ function updatePreview() {
   preview.classList.add(`mask-${maskStyle}`);
 }
 
-[jacketColorInput, pantsColorInput, accentColorInput, maskStyleSelect].forEach((input) => {
+[jacketColorInput, pantsColorInput, accentColorInput, gloveColorInput, shoeColorInput, maskStyleSelect].forEach((input) => {
   input.addEventListener('input', updatePreview);
 });
 
 updatePreview();
+
+randomAliasButton.addEventListener('click', () => {
+  aliasInput.value = generateAlias();
+});
+
+randomizeLookButton.addEventListener('click', () => {
+  const palette = randomPlayerPalette();
+  jacketColorInput.value = palette.jacket;
+  pantsColorInput.value = palette.pants;
+  accentColorInput.value = palette.accent;
+  gloveColorInput.value = palette.gloves;
+  shoeColorInput.value = palette.shoes;
+  const styles = ['none', 'bandana', 'full'];
+  maskStyleSelect.value = styles[Math.floor(Math.random() * styles.length)];
+  if (!aliasInput.value.trim()) {
+    aliasInput.value = generateAlias();
+  }
+  updatePreview();
+});
 
 beginTutorialButton.addEventListener('click', () => {
   endOverlay.classList.add('hidden');
@@ -99,9 +135,12 @@ beginTutorialButton.addEventListener('click', () => {
     colors: {
       jacket: jacketColorInput.value,
       pants: pantsColorInput.value,
-      accent: accentColorInput.value
+      accent: accentColorInput.value,
+      gloves: gloveColorInput.value,
+      shoes: shoeColorInput.value
     },
-    maskStyle: maskStyleSelect.value
+    maskStyle: maskStyleSelect.value,
+    attitude: attitudeSelect.value
   };
   showScreen('game');
   currentGame = new DisorderlyConductGame(canvas, ctx, profile);
@@ -134,6 +173,7 @@ class DisorderlyConductGame {
     this.ctx = context;
     this.profile = profile;
     this.alias = profile.alias || 'You';
+    this.attitude = profile.attitude || 'professional';
     this.running = false;
     this.isDestroyed = false;
     this.inputEnabled = true;
@@ -164,6 +204,11 @@ class DisorderlyConductGame {
       speed: 240,
       onGround: true
     };
+
+    this.obstacles = [
+      { x: 1120, width: 72, height: 42, type: 'barricade', active: false, triggered: false },
+      { x: 1280, width: 88, height: 36, type: 'spikes', active: false, triggered: false }
+    ];
 
     this.store = {
       building: { x: 520, width: 260, height: 220 },
@@ -209,6 +254,25 @@ class DisorderlyConductGame {
 
     this.cameraX = 0;
 
+    this.heat = {
+      value: 5,
+      target: 5,
+      reason: 'Neighborhood calm'
+    };
+
+    this.intelEntries = [];
+    intelLog.innerHTML = '';
+
+    this.backgroundPhase = Math.random() * Math.PI * 2;
+
+    this.minigame = new MinigameOverlay(minigameOverlayEl, minigameAbortButton);
+    this.minigame.onConsume = () => {
+      this.inputEnabled = false;
+    };
+    this.minigame.onRelease = () => {
+      this.inputEnabled = true;
+    };
+
     this.gravity = 1800;
     this.jumpVelocity = -620;
 
@@ -227,6 +291,9 @@ class DisorderlyConductGame {
     this.inputEnabled = true;
     this.ended = false;
     this.lastTime = performance.now();
+    this.clearIntel();
+    this.setHeat(5, 'Neighborhood calm');
+    this.resetObstacles();
     this.tutorial.start();
     this.loopId = requestAnimationFrame(this.boundLoop);
   }
@@ -238,9 +305,13 @@ class DisorderlyConductGame {
     }
     this.running = false;
     this.isDestroyed = true;
+    this.minigame.close();
   }
 
   handleKeyDown(code) {
+    if (this.minigame.active && this.minigame.handleKeyDown(code)) {
+      return;
+    }
     switch (true) {
       case KEY_MAP.left.includes(code):
         this.keys.left = true;
@@ -266,6 +337,9 @@ class DisorderlyConductGame {
   }
 
   handleKeyUp(code) {
+    if (this.minigame.active && this.minigame.handleKeyUp(code)) {
+      return;
+    }
     switch (true) {
       case KEY_MAP.left.includes(code):
         this.keys.left = false;
@@ -311,22 +385,20 @@ class DisorderlyConductGame {
       this.handleMovement(delta);
     }
 
+    this.minigame.update(delta);
     this.updateDialogue(delta);
     this.tutorial.update(delta);
     this.updateAccomplice(delta);
     this.updatePolice(delta);
+    this.updateHeat(delta);
+    this.backgroundPhase += delta * 0.25;
 
-    if (this.tutorial.step === 'intimidate') {
-      const progress = Math.min(100, Math.round((this.tutorial.robberyTimer / 3) * 100));
-      this.setStatusDetail(`Clerk compliance: ${progress}%`);
-    } else if (this.tutorial.step === 'escape') {
+    if (this.tutorial.step === 'escape') {
       const distance = Math.max(0, this.escapeZone.x - this.player.x);
       const meters = Math.max(0, Math.round(distance / 10));
       this.setStatusDetail(`Distance to alley: ${meters} m`);
     } else if (this.tutorial.step === 'captured') {
       this.setStatusDetail('Pinned down by responding officers.');
-    } else {
-      this.setStatusDetail('');
     }
   }
 
@@ -364,6 +436,8 @@ class DisorderlyConductGame {
     const halfWidth = player.width / 2;
     if (player.x < halfWidth) player.x = halfWidth;
     if (player.x > this.world.width - halfWidth) player.x = this.world.width - halfWidth;
+
+    this.handleObstacleInteractions();
 
     this.cameraX = clamp(player.x - this.canvas.width / 2, 0, this.world.width - this.canvas.width);
   }
@@ -428,6 +502,49 @@ class DisorderlyConductGame {
     statusEl.innerHTML = parts.join('<br>');
   }
 
+  setHeat(target, note) {
+    this.heat.target = clamp(target, 0, 100);
+    if (note) {
+      this.heat.reason = note;
+    }
+  }
+
+  updateHeat(delta) {
+    const diff = this.heat.target - this.heat.value;
+    if (Math.abs(diff) > 0.1) {
+      this.heat.value += diff * Math.min(1, delta * 3.5);
+    } else {
+      this.heat.value = this.heat.target;
+    }
+    const clamped = clamp(this.heat.value, 0, 100);
+    heatFill.style.width = `${clamped}%`;
+    const descriptor = clamped < 20
+      ? 'Ghosted'
+      : clamped < 40
+        ? 'Chill'
+        : clamped < 60
+          ? 'Noticed'
+          : clamped < 80
+            ? 'Hot'
+            : 'Blazing';
+    heatNote.textContent = `${descriptor} • ${this.heat.reason}`;
+  }
+
+  clearIntel() {
+    this.intelEntries = [];
+    intelLog.innerHTML = '';
+  }
+
+  appendIntel(entry) {
+    this.intelEntries.push(entry);
+    while (this.intelEntries.length > 4) {
+      this.intelEntries.shift();
+    }
+    intelLog.innerHTML = this.intelEntries
+      .map((line) => `<div>› ${line}</div>`)
+      .join('');
+  }
+
   updateAccomplice(delta) {
     if (!this.accomplice.visible) return;
 
@@ -440,10 +557,65 @@ class DisorderlyConductGame {
     }
   }
 
+  handleObstacleInteractions() {
+    const player = this.player;
+    const half = player.width / 2;
+    const playerLeft = player.x - half;
+    const playerRight = player.x + half;
+    const playerTop = player.y - player.height;
+    const playerBottom = player.y;
+
+    this.obstacles.forEach((obstacle) => {
+      if (!obstacle.active) return;
+      const left = obstacle.x - obstacle.width / 2;
+      const right = obstacle.x + obstacle.width / 2;
+      const top = this.groundY - obstacle.height;
+      const bottom = this.groundY;
+
+      const overlapX = playerRight > left && playerLeft < right;
+      const overlapY = playerBottom > top && playerTop < bottom;
+
+      if (overlapX && overlapY) {
+        if (playerBottom >= top && player.vy >= 0) {
+          player.y = top;
+          player.vy = 0;
+          player.onGround = true;
+        }
+        if (player.x < obstacle.x) {
+          player.x = left - half - 2;
+        } else {
+          player.x = right + half + 2;
+        }
+        this.hitObstacle(obstacle);
+      }
+    });
+  }
+
   updatePolice(delta) {
     if (this.police.active) {
       this.police.lightPhase += delta * 6;
     }
+  }
+
+  activateObstacles() {
+    this.obstacles.forEach((obstacle) => {
+      obstacle.active = true;
+    });
+  }
+
+  resetObstacles() {
+    this.obstacles.forEach((obstacle) => {
+      obstacle.active = false;
+      obstacle.triggered = false;
+    });
+  }
+
+  hitObstacle(obstacle) {
+    if (obstacle.triggered) return;
+    obstacle.triggered = true;
+    this.appendIntel('Noise erupts as debris scatters across the alley.');
+    this.setHeat(this.heat.target + 8, 'Crash echoes through the block');
+    this.queueDialogue('Dispatcher', 'Unit reported a loud bang near QuickFix Mart. Patrol rerouting!');
   }
 
   isPlayerInZone(zone) {
@@ -463,6 +635,7 @@ class DisorderlyConductGame {
     if (this.tutorial.step === 'escape' || this.tutorial.step === 'captured') {
       this.drawEscapeMarker();
     }
+    this.drawObstacles();
     if (this.police.active) {
       this.drawPolice();
     }
@@ -476,25 +649,50 @@ class DisorderlyConductGame {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    ctx.fillStyle = '#0c151f';
+    const gradient = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+    const phase = this.backgroundPhase;
+    gradient.addColorStop(0, '#090c14');
+    gradient.addColorStop(0.45, '#132132');
+    gradient.addColorStop(1, '#05070c');
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    const skylineOffset = (cameraX * 0.35) % 240;
+    const starCount = 60;
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    for (let i = 0; i < starCount; i++) {
+      const twinkle = 0.6 + 0.4 * Math.sin(phase * 2 + i);
+      const x = ((i * 137) % this.canvas.width);
+      const y = ((i * 83) % (this.canvas.height / 2));
+      ctx.globalAlpha = twinkle;
+      ctx.fillRect(x, y + 30, 2, 2);
+    }
+    ctx.globalAlpha = 1;
+
+    const skylineOffset = (cameraX * 0.35 + phase * 30) % 240;
     ctx.fillStyle = '#142438';
-    for (let i = -1; i < 10; i++) {
-      const x = i * 240 - skylineOffset;
+    for (let i = -1; i < 12; i++) {
+      const x = i * 220 - skylineOffset;
       const width = 160;
       const height = 180 + mod(i * 37, 80);
-      ctx.fillRect(x, this.canvas.height - height - 180, width, height);
+      ctx.fillRect(x, this.canvas.height - height - 200, width, height);
     }
 
-    const midOffset = (cameraX * 0.6) % 180;
+    const midOffset = (cameraX * 0.6 + phase * 60) % 180;
     ctx.fillStyle = '#1b2f46';
     for (let i = -1; i < 12; i++) {
       const x = i * 180 - midOffset;
       const width = 120;
       const height = 120 + mod(i * 51, 60);
       ctx.fillRect(x, this.canvas.height - height - 120, width, height);
+    }
+
+    ctx.fillStyle = 'rgba(58, 82, 114, 0.45)';
+    const hazeOffset = (cameraX * 0.25 + phase * 40) % 320;
+    for (let i = -1; i < 10; i++) {
+      const x = i * 320 - hazeOffset;
+      ctx.beginPath();
+      ctx.ellipse(x + 160, this.canvas.height - 220, 220, 40, 0, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
@@ -540,7 +738,7 @@ class DisorderlyConductGame {
     ctx.fillStyle = '#3f5266';
     ctx.fillRect(this.store.counter.x, this.groundY - 50, this.store.counter.width, this.store.counter.height);
 
-    if (this.tutorial.step === 'door') {
+    if (['door', 'lockpick', 'breach'].includes(this.tutorial.step)) {
       ctx.fillStyle = 'rgba(74, 192, 255, 0.35)';
       ctx.fillRect(this.store.doorZone.x - 6, this.groundY - 112, this.store.doorZone.width + 12, 116);
     }
@@ -562,6 +760,34 @@ class DisorderlyConductGame {
     ctx.lineTo(this.escapeZone.x + 30, this.groundY - 90);
     ctx.closePath();
     ctx.fill();
+  }
+
+  drawObstacles() {
+    const ctx = this.ctx;
+    this.obstacles.forEach((obstacle) => {
+      if (!obstacle.active) return;
+      ctx.save();
+      ctx.translate(obstacle.x, this.groundY);
+      ctx.fillStyle = obstacle.type === 'spikes' ? '#d94f4f' : '#3a4a5f';
+      const height = obstacle.height;
+      const width = obstacle.width;
+      ctx.fillRect(-width / 2, -height, width, height);
+      if (obstacle.type === 'barricade') {
+        ctx.fillStyle = 'rgba(255, 194, 71, 0.8)';
+        ctx.fillRect(-width / 2, -height / 2, width, 8);
+      } else if (obstacle.type === 'spikes') {
+        ctx.fillStyle = '#fbfaf5';
+        for (let i = -width / 2; i < width / 2; i += 10) {
+          ctx.beginPath();
+          ctx.moveTo(i, -height);
+          ctx.lineTo(i + 5, -height - 14);
+          ctx.lineTo(i + 10, -height);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    });
   }
 
   drawPlayer() {
@@ -592,6 +818,14 @@ class DisorderlyConductGame {
     // accent strap
     ctx.fillStyle = colors.accent;
     ctx.fillRect(-p.width / 2 + 4, -legHeight - bodyHeight + 12, p.width - 8, 8);
+
+    // gloves / sleeves
+    ctx.fillStyle = colors.gloves;
+    ctx.fillRect(-p.width / 2 - 10, -legHeight - bodyHeight + 10, p.width + 20, 12);
+
+    // shoes
+    ctx.fillStyle = colors.shoes;
+    ctx.fillRect(-p.width / 2 + 6, -4, p.width - 12, 12);
 
     // head
     const headY = -legHeight - bodyHeight - headRadius;
@@ -640,6 +874,12 @@ class DisorderlyConductGame {
     ctx.fillRect(-a.width / 2, -legHeight - bodyHeight, a.width, bodyHeight);
     ctx.fillStyle = a.colors.accent;
     ctx.fillRect(-a.width / 2 + 6, -legHeight - bodyHeight + 10, a.width - 12, 6);
+
+    ctx.fillStyle = a.colors.gloves || '#cbd4e0';
+    ctx.fillRect(-a.width / 2 - 8, -legHeight - bodyHeight + 8, a.width + 16, 10);
+
+    ctx.fillStyle = a.colors.shoes || '#111821';
+    ctx.fillRect(-a.width / 2 + 4, -4, a.width - 8, 10);
 
     const headY = -legHeight - bodyHeight - headRadius;
     ctx.fillStyle = '#bd8e63';
@@ -715,58 +955,81 @@ class DisorderlyConductGame {
 class TutorialController {
   constructor(game) {
     this.game = game;
+    this.reset();
+  }
+
+  reset() {
     this.step = 'approach';
     this.robberyTimer = 0;
     this.wantedLevel = 0;
     this.policeArrived = false;
+    this.clerkFear = 0.35;
+    this.cashGrab = 0;
+    this.timeWithoutThreat = 0;
+    this.flags = {
+      intimidationHint: false,
+      registerHint: false,
+      panicWarn: false,
+      lockpickWarn: false,
+      obstacleBrief: false
+    };
   }
 
   start() {
-    this.game.setObjective(`Head to the QuickFix Mart and meet ${this.game.accompliceName}.`);
+    this.reset();
+    const { game } = this;
+    game.setObjective(`Head to the QuickFix Mart and meet ${game.accompliceName}.`);
     this.setWantedLevel(0);
-    this.game.queueDialogue('Dispatcher', 'Late-night lull on the scanners. Perfect moment to make a name for yourself.', 3.5);
+    game.setStatusDetail('Move with purpose but keep it subtle.');
+    game.appendIntel('Night watch is thin near South Market.');
+    const preamble = this.lineForAttitude({
+      professional: 'Focus up. We ghost this place in ninety seconds.',
+      reckless: 'We kick the hornet nest and still walk out rich.',
+      empathetic: 'Nobody gets hurt tonight. Fast and clean.'
+    });
+    game.queueDialogue('Dispatcher', 'Late-night lull on the scanners. Perfect moment to make a name for yourself.', 3.5);
+    game.queueDialogue(game.alias, preamble);
+    game.queueDialogue(game.accompliceName, 'Engine is idling two blocks over. Give me the signal when the door is cracked.');
   }
 
   update(delta) {
     const player = this.game.player;
     switch (this.step) {
       case 'approach':
-        if (player.x >= this.game.accomplice.x - 40) {
+        if (player.x >= this.game.accomplice.x - 50) {
           this.step = 'door';
+          this.game.appendIntel('Accomplice is positioned beside the entrance.');
           this.game.queueDialogue(this.game.accompliceName, 'There you are. Keep it slick and quiet, rookie.');
-          this.game.queueDialogue(this.game.alias, "I'll handle the clerk. Keep the engine warm.");
+          this.game.queueDialogue(this.game.alias, this.lineForAttitude({
+            professional: "I'll handle the clerk. Keep the engine warm.",
+            reckless: "This place is a joke. We blitz them.",
+            empathetic: "No one panics if we stay calm."
+          }));
           this.game.queueDialogue(this.game.accompliceName, `Signal me at the door when you're ready.`);
           this.game.setObjective(`Signal ${this.game.accompliceName} at the store entrance (press E).`);
+          this.game.setStatusDetail('Stand near the door and press E to start the breach.');
         }
         break;
       case 'door':
         if (this.game.isPlayerInZone(this.game.store.doorZone) && this.game.consumeInteract()) {
-          this.step = 'intimidate';
-          this.setWantedLevel(1);
-          this.game.queueDialogue(this.game.alias, 'Nobody move! Empty the register now.');
-          this.game.queueDialogue('Clerk', "Please don't hurt me! I'm opening it!");
-          this.game.setObjective('Hold position while the clerk opens the register.');
-          this.robberyTimer = 0;
+          this.startLockpick();
+        }
+        break;
+      case 'lockpick':
+        break;
+      case 'breach':
+        if (this.game.isPlayerInZone(this.game.store.doorZone) && this.game.consumeInteract()) {
+          this.beginIntimidation();
         }
         break;
       case 'intimidate':
-        this.robberyTimer += delta;
-        if (this.robberyTimer >= 3) {
-          this.step = 'register';
-          this.game.queueDialogue('Clerk', "It's open! Take it and go!");
-          this.game.setObjective('Grab the cash from the register (press E).');
-        }
+        this.updateIntimidation(delta);
         break;
       case 'register':
-        if (this.game.isPlayerInZone(this.game.store.registerZone) && this.game.consumeInteract()) {
-          this.step = 'escape';
-          this.setWantedLevel(2);
-          this.game.queueDialogue(this.game.alias, 'Cash secured. We ghost this place now.');
-          this.game.queueDialogue(this.game.accompliceName, 'Run to the alley! I will swing the car around!');
-          this.game.setObjective('Sprint to the alley getaway point down the street.');
-        }
+        this.updateRegister(delta);
         break;
       case 'escape':
+        this.updateEscape(delta);
         if (player.x >= this.game.escapeZone.x) {
           this.triggerPolice();
         }
@@ -775,6 +1038,160 @@ class TutorialController {
         break;
       default:
         break;
+    }
+  }
+
+  startLockpick() {
+    this.step = 'lockpick';
+    this.game.setStatusDetail('Cycle the cheap mag-lock quickly.');
+    this.game.appendIntel('Lockpick attempt underway...');
+    this.game.queueDialogue(this.game.accompliceName, "Don't fumble this. Cameras are sleeping for another minute.");
+    const sequence = generateLockpickSequence(5);
+    this.game.minigame.startLockpick({
+      title: 'Bypass Security',
+      instructions: 'Hit the highlighted keys in order to lift the tumblers.',
+      sequence,
+      timeLimit: 12,
+      onComplete: () => this.onLockpickSuccess(),
+      onFail: () => this.onLockpickFail()
+    });
+  }
+
+  onLockpickSuccess() {
+    this.step = 'breach';
+    this.setWantedLevel(1);
+    this.game.setHeat(32, 'Door bypassed without alarms');
+    this.game.appendIntel('Door quietly unlatches. Clerk inside hasn\'t noticed.');
+    this.game.queueDialogue(this.game.accompliceName, 'Nice work. Keep it smooth inside. I\'ll loop the dashcam again.');
+    this.game.setObjective('Ease the door open and slip inside (press E).');
+    this.game.setStatusDetail('Press E near the door to rush the clerk.');
+  }
+
+  onLockpickFail() {
+    this.step = 'door';
+    this.game.setHeat(this.game.heat.target + 12, 'Lockpick scrapes draw attention');
+    this.game.appendIntel('Metal screeches — a nearby dog barks in response.');
+    if (!this.flags.lockpickWarn) {
+      this.game.queueDialogue(this.game.accompliceName, 'Careful! You trip that alarm and we\'re toast. Try again.');
+      this.flags.lockpickWarn = true;
+    }
+    this.game.setStatusDetail('Steady hands. Try the lock again.');
+  }
+
+  beginIntimidation() {
+    this.step = 'intimidate';
+    this.robberyTimer = 0;
+    this.clerkFear = 0.45;
+    this.timeWithoutThreat = 0;
+    this.setWantedLevel(1);
+    this.game.setHeat(52, 'Clerk startled into compliance');
+    this.game.appendIntel('Clerk stumbles back, eyeing the silent alarm.');
+    this.game.queueDialogue(this.game.alias, this.lineForAttitude({
+      professional: 'Nobody move! Empty the register now.',
+      reckless: 'Hands up! Blink wrong and this gets messy.',
+      empathetic: 'Stay calm and nobody gets hurt. Open the drawer.'
+    }));
+    this.game.queueDialogue('Clerk', "Please don't hurt me! I'm opening it!");
+    this.game.setObjective('Control the clerk (hold E to keep pressure).');
+    this.game.setStatusDetail('Hold E to keep the fear high.');
+  }
+
+  updateIntimidation(delta) {
+    const applyingPressure = this.game.keys.interact;
+    if (applyingPressure) {
+      this.clerkFear = clamp(this.clerkFear + delta * 0.9, 0, 1);
+      this.timeWithoutThreat = 0;
+    } else {
+      this.clerkFear = clamp(this.clerkFear - delta * 0.45, 0, 1);
+      this.timeWithoutThreat += delta;
+    }
+
+    const compliance = Math.round(this.clerkFear * 100);
+    this.game.setStatusDetail(`Clerk compliance: ${compliance}% (hold E)`);
+    this.game.setHeat(48 + this.clerkFear * 22, this.clerkFear > 0.7 ? 'Clerk obeys, for now' : 'Clerk wavering');
+
+    if (!applyingPressure && this.timeWithoutThreat > 1.2 && !this.flags.intimidationHint) {
+      this.game.queueDialogue(this.game.accompliceName, 'Keep leaning on them! Hold E so they don\'t hit the button.');
+      this.flags.intimidationHint = true;
+    }
+
+    if (this.clerkFear < 0.25 && !this.flags.panicWarn) {
+      this.flags.panicWarn = true;
+      this.game.appendIntel('Clerk fingers the panic alarm under the counter.');
+      this.game.setHeat(this.game.heat.target + 12, 'Alarm fingered!');
+      this.game.queueDialogue('Clerk', 'I already hit the panic button! You better run!');
+    }
+
+    if (this.clerkFear > 0.7) {
+      this.robberyTimer = Math.min(4, this.robberyTimer + delta);
+    } else {
+      this.robberyTimer = Math.max(0, this.robberyTimer - delta * 0.5);
+    }
+
+    if (this.robberyTimer >= 4) {
+      this.beginRegisterGrab();
+    }
+  }
+
+  beginRegisterGrab() {
+    this.step = 'register';
+    this.cashGrab = 0;
+    this.setWantedLevel(2);
+    this.game.setHeat(70, 'Silent alarm LED flickers red');
+    this.game.appendIntel('Register drawer slides open with the nightly drop.');
+    this.game.queueDialogue('Clerk', "It's open! Take it and go!");
+    this.game.setObjective('Grab the cash from the register (hold E).');
+    this.game.setStatusDetail('Bag fill: 0%');
+  }
+
+  updateRegister(delta) {
+    if (this.game.isPlayerInZone(this.game.store.registerZone)) {
+      if (this.game.keys.interact) {
+        this.cashGrab = clamp(this.cashGrab + delta * 0.65, 0, 1);
+      } else {
+        this.cashGrab = clamp(this.cashGrab - delta * 0.25, 0, 1);
+      }
+      const fill = Math.round(this.cashGrab * 100);
+      this.game.setStatusDetail(`Bag fill: ${fill}% (hold E)`);
+      if (!this.flags.registerHint) {
+        this.flags.registerHint = true;
+        this.game.queueDialogue(this.game.alias, this.lineForAttitude({
+          professional: 'Scooping the bills. Keep watch.',
+          reckless: 'Grab it all! We deserve this.',
+          empathetic: 'Taking just the cash. No one gets hurt.'
+        }));
+      }
+    } else {
+      this.game.setStatusDetail('Get behind the counter to reach the cash.');
+    }
+
+    this.game.setHeat(70 + this.cashGrab * 18, 'Silent alarm pinging dispatch');
+
+    if (this.cashGrab >= 1) {
+      this.startEscape();
+    }
+  }
+
+  startEscape() {
+    this.step = 'escape';
+    this.setWantedLevel(2);
+    this.game.activateObstacles();
+    this.game.setHeat(82, '911 call logged — patrol en route');
+    this.game.appendIntel('Distant sirens crescendo. Time to bolt.');
+    this.game.queueDialogue(this.game.accompliceName, 'Run to the alley! I will swing the car around!');
+    this.game.queueDialogue(this.game.alias, this.lineForAttitude({
+      professional: 'Cash secured. Move!',
+      reckless: 'Adrenaline! Let\'s fly!',
+      empathetic: 'Let\'s go before anyone gets hurt.'
+    }));
+    this.game.setObjective('Sprint to the alley getaway point down the street (jump with Space).');
+  }
+
+  updateEscape(delta) {
+    if (!this.flags.obstacleBrief && this.game.player.x > 1020) {
+      this.flags.obstacleBrief = true;
+      this.game.queueDialogue(this.game.accompliceName, 'Road crew left barriers ahead — jump them!');
+      this.game.appendIntel('Public works barricades block the straight path. Jump or weave.');
     }
   }
 
@@ -802,13 +1219,184 @@ class TutorialController {
     this.game.player.vx = 0;
     this.game.player.vy = 0;
     this.game.police.active = true;
+    this.game.setHeat(100, 'Cruisers box you in on both sides');
+    this.game.appendIntel('Multiple squads converge from both ends of the street.');
+    this.game.appendIntel(`${this.game.accompliceName} vanishes into a side street, leaving you alone.`);
     this.game.queueDialogue('Officer', 'Freeze! LSPD! Drop the cash and get on the ground!');
-    this.game.queueDialogue(this.game.alias, "We're boxed in! There's nowhere to run!");
+    this.game.queueDialogue(this.game.alias, this.lineForAttitude({
+      professional: "We\'re boxed in! There\'s nowhere to run!",
+      reckless: 'Ah, come on! We were so close!',
+      empathetic: 'Just breathe... hands where they can see them.'
+    }));
     this.game.queueDialogue(this.game.accompliceName, "I can't get pinched. I'm out! Sorry!");
     this.game.queueDialogue('Officer', 'Hands behind your back! You are under arrest.');
     this.game.accompliceFleeing = true;
     this.game.onDialogueEmpty = () => this.game.endTutorial();
   }
+
+  lineForAttitude(options) {
+    return options[this.game.attitude] || options.professional || Object.values(options)[0] || '';
+  }
+}
+
+class MinigameOverlay {
+  constructor(element, abortButton) {
+    this.element = element;
+    this.abortButton = abortButton;
+    this.titleEl = element.querySelector('.minigame-title');
+    this.instructionsEl = element.querySelector('.minigame-instructions');
+    this.bodyEl = element.querySelector('.minigame-body');
+    this.timerEl = element.querySelector('.minigame-timer');
+    this.active = false;
+    this.type = null;
+    this.sequence = [];
+    this.keyElements = [];
+    this.index = 0;
+    this.timeLeft = 0;
+    this.onComplete = null;
+    this.onFail = null;
+    this.onConsume = null;
+    this.onRelease = null;
+
+    this.abortButton.addEventListener('click', () => {
+      if (!this.active) return;
+      this.fail('abort');
+    });
+  }
+
+  startLockpick(config) {
+    this.active = true;
+    this.type = 'lockpick';
+    this.sequence = config.sequence.slice();
+    this.index = 0;
+    this.timeLeft = config.timeLimit || 10;
+    this.onComplete = config.onComplete;
+    this.onFail = config.onFail;
+    this.titleEl.textContent = config.title || 'Minigame';
+    this.instructionsEl.textContent = config.instructions || '';
+    this.bodyEl.innerHTML = '';
+    this.keyElements = this.sequence.map((code, i) => {
+      const keyEl = document.createElement('div');
+      keyEl.className = 'minigame-key' + (i === 0 ? ' active' : '');
+      keyEl.dataset.code = code;
+      keyEl.textContent = keyLabelForCode(code);
+      this.bodyEl.appendChild(keyEl);
+      return keyEl;
+    });
+    this.timerEl.textContent = `Timer: ${this.timeLeft.toFixed(1)}s`;
+    this.abortButton.classList.add('hidden');
+    this.element.classList.remove('hidden');
+    if (typeof this.onConsume === 'function') {
+      this.onConsume();
+    }
+  }
+
+  handleKeyDown(code) {
+    if (!this.active) return false;
+    if (this.type === 'lockpick') {
+      if (code === this.sequence[this.index]) {
+        this.advanceSequence();
+      } else if (!code.startsWith('Shift') && code !== 'Tab') {
+        this.fail('wrong');
+      }
+      return true;
+    }
+    return false;
+  }
+
+  handleKeyUp(code) {
+    if (!this.active) return false;
+    if (this.type === 'lockpick') {
+      return ['ShiftLeft', 'ShiftRight'].includes(code);
+    }
+    return false;
+  }
+
+  advanceSequence() {
+    if (!this.active) return;
+    const currentEl = this.keyElements[this.index];
+    if (currentEl) {
+      currentEl.classList.remove('active');
+      currentEl.classList.add('done');
+    }
+    this.index += 1;
+    if (this.index >= this.sequence.length) {
+      this.succeed();
+      return;
+    }
+    const nextEl = this.keyElements[this.index];
+    if (nextEl) {
+      nextEl.classList.add('active');
+    }
+  }
+
+  update(delta) {
+    if (!this.active) return;
+    this.timeLeft -= delta;
+    if (this.timeLeft <= 0) {
+      this.timerEl.textContent = 'Timer: 0.0s';
+      this.fail('timeout');
+      return;
+    }
+    this.timerEl.textContent = `Timer: ${this.timeLeft.toFixed(1)}s`;
+  }
+
+  succeed() {
+    const callback = this.onComplete;
+    this.close();
+    if (typeof callback === 'function') {
+      callback();
+    }
+  }
+
+  fail() {
+    const callback = this.onFail;
+    this.close();
+    if (typeof callback === 'function') {
+      callback();
+    }
+  }
+
+  close() {
+    if (!this.active) return;
+    this.active = false;
+    this.type = null;
+    this.sequence = [];
+    this.keyElements = [];
+    this.index = 0;
+    this.bodyEl.innerHTML = '';
+    this.element.classList.add('hidden');
+    this.timerEl.textContent = 'Timer: --';
+    if (typeof this.onRelease === 'function') {
+      this.onRelease();
+    }
+  }
+}
+
+function generateLockpickSequence(length) {
+  const keys = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyA', 'KeyS', 'KeyD'];
+  const sequence = [];
+  for (let i = 0; i < length; i++) {
+    sequence.push(keys[Math.floor(Math.random() * keys.length)]);
+  }
+  return sequence;
+}
+
+function keyLabelForCode(code) {
+  const map = {
+    KeyQ: 'Q',
+    KeyW: 'W',
+    KeyE: 'E',
+    KeyR: 'R',
+    KeyA: 'A',
+    KeyS: 'S',
+    KeyD: 'D',
+    ArrowLeft: '←',
+    ArrowRight: '→',
+    ArrowUp: '↑',
+    ArrowDown: '↓'
+  };
+  return map[code] || code.replace('Key', '');
 }
 
 function randomAccompliceName() {
@@ -818,12 +1406,28 @@ function randomAccompliceName() {
 
 function randomOutfitPalette() {
   const palettes = [
-    { jacket: '#24455c', pants: '#1f2733', accent: '#ff9f43' },
-    { jacket: '#3b2f4d', pants: '#1b1629', accent: '#f25f5c' },
-    { jacket: '#2d4739', pants: '#1b2d22', accent: '#ffce73' },
-    { jacket: '#44353c', pants: '#2b1b1e', accent: '#ef476f' }
+    { jacket: '#24455c', pants: '#1f2733', accent: '#ff9f43', gloves: '#d7dbe1', shoes: '#111821' },
+    { jacket: '#3b2f4d', pants: '#1b1629', accent: '#f25f5c', gloves: '#e8e0ff', shoes: '#241a2f' },
+    { jacket: '#2d4739', pants: '#1b2d22', accent: '#ffce73', gloves: '#c9d2c5', shoes: '#16221a' },
+    { jacket: '#44353c', pants: '#2b1b1e', accent: '#ef476f', gloves: '#f2d0df', shoes: '#2b1f2b' }
   ];
   return palettes[Math.floor(Math.random() * palettes.length)];
+}
+
+function randomPlayerPalette() {
+  const palettes = [
+    { jacket: '#1f3a4d', pants: '#121c26', accent: '#ff6b6b', gloves: '#d3dae4', shoes: '#1b1f29' },
+    { jacket: '#3a2745', pants: '#1a1024', accent: '#f97316', gloves: '#f0d7ff', shoes: '#24142f' },
+    { jacket: '#2a3f2c', pants: '#182319', accent: '#9be564', gloves: '#dbe5cd', shoes: '#0f1412' },
+    { jacket: '#2f2a44', pants: '#16152a', accent: '#5ad1ff', gloves: '#d0e8ff', shoes: '#16182f' }
+  ];
+  return palettes[Math.floor(Math.random() * palettes.length)];
+}
+
+function generateAlias() {
+  const adjectives = ['Silent', 'Midnight', 'Crimson', 'Neon', 'Shadow', 'Velvet', 'Static', 'Ghost', 'Iron', 'Feral'];
+  const nouns = ['Rogue', 'Specter', 'Driver', 'Cipher', 'Echo', 'Viper', 'Tempest', 'Pulse', 'Nomad', 'Wraith'];
+  return `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
 }
 
 function clamp(value, min, max) {

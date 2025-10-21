@@ -32,8 +32,11 @@
       <p>Choose a look for the job. Your accomplice will judge.</p>
       <div class="customization-grid">
         <div class="controls">
-          <label>Alias
-            <input type="text" id="aliasInput" maxlength="16" placeholder="Optional">
+          <label class="alias-row">Alias
+            <div class="alias-inputs">
+              <input type="text" id="aliasInput" maxlength="16" placeholder="Optional">
+              <button id="randomAlias" type="button" class="ghost">Randomize</button>
+            </div>
           </label>
           <label>Jacket Color
             <input type="color" id="jacketColor" value="#2b3640">
@@ -44,6 +47,12 @@
           <label>Accent Color
             <input type="color" id="accentColor" value="#d93f3f">
           </label>
+          <label>Glove Color
+            <input type="color" id="gloveColor" value="#c5c9d0">
+          </label>
+          <label>Shoe Color
+            <input type="color" id="shoeColor" value="#1b1f29">
+          </label>
           <label>Mask Style
             <select id="maskStyle">
               <option value="none">None</option>
@@ -51,6 +60,14 @@
               <option value="full">Full Mask</option>
             </select>
           </label>
+          <label>Attitude
+            <select id="attitude">
+              <option value="professional">Professional</option>
+              <option value="reckless">Reckless</option>
+              <option value="empathetic">Empathetic</option>
+            </select>
+          </label>
+          <button id="randomizeLook" type="button" class="ghost block">Random Outfit</button>
         </div>
         <div class="preview">
           <h3>Preview</h3>
@@ -60,6 +77,8 @@
             <div class="body"></div>
             <div class="legs"></div>
             <div class="accent"></div>
+            <div class="hands"></div>
+            <div class="shoes"></div>
           </div>
         </div>
       </div>
@@ -75,6 +94,25 @@
         <div id="objective" class="panel"></div>
         <div id="dialogue" class="panel"></div>
         <div id="status" class="panel"></div>
+        <div id="heatPanel" class="panel meter">
+          <div class="meter-label">Heat</div>
+          <div class="meter-bar">
+            <div class="meter-fill"></div>
+          </div>
+          <div class="meter-note"></div>
+        </div>
+        <div id="intelLog" class="panel log"></div>
+      </div>
+      <div id="minigameOverlay" class="overlay hidden">
+        <div class="overlay-content minigame">
+          <h2 class="minigame-title"></h2>
+          <p class="minigame-instructions"></p>
+          <div class="minigame-body"></div>
+          <div class="minigame-footer">
+            <span class="minigame-timer"></span>
+            <button id="minigameAbort" class="ghost hidden" type="button">Abort</button>
+          </div>
+        </div>
       </div>
       <div id="endOverlay" class="overlay hidden">
         <div class="overlay-content">

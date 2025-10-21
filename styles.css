@@ -66,6 +66,17 @@ button {
   color: var(--text);
 }
 
+button.ghost {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 0.55rem 1.2rem;
+}
+
+button.block {
+  width: 100%;
+  margin-top: 0.6rem;
+}
+
 button.primary {
   background: linear-gradient(120deg, var(--accent), #f7a654);
   color: #10151b;
@@ -115,6 +126,21 @@ button:hover {
   color: var(--muted);
 }
 
+.alias-row {
+  gap: 0.6rem;
+}
+
+.alias-inputs {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.alias-inputs input {
+  flex: 1;
+}
+
 #customization input[type="text"] {
   padding: 0.6rem 0.8rem;
   background: rgba(255, 255, 255, 0.06);
@@ -155,7 +181,9 @@ button:hover {
 .character .mask,
 .character .body,
 .character .legs,
-.character .accent {
+.character .accent,
+.character .hands,
+.character .shoes {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -201,6 +229,24 @@ button:hover {
   height: 64px;
   background: #d93f3f;
   border-radius: 999px;
+}
+
+.character .hands {
+  top: 126px;
+  width: 120px;
+  height: 24px;
+  background: #c5c9d0;
+  border-radius: 999px;
+  clip-path: inset(0 20px round 999px);
+}
+
+.character .shoes {
+  top: 222px;
+  width: 92px;
+  height: 22px;
+  background: #1b1f29;
+  border-bottom-left-radius: 1.5rem;
+  border-bottom-right-radius: 1.5rem;
 }
 
 .character.mask-none .mask {
@@ -267,6 +313,50 @@ button:hover {
   line-height: 1.4;
 }
 
+.panel.meter {
+  padding-top: 1.2rem;
+  padding-bottom: 1.2rem;
+}
+
+.meter-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.meter-bar {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.35rem;
+}
+
+.meter-fill {
+  position: absolute;
+  inset: 0;
+  width: 30%;
+  background: linear-gradient(90deg, #3bf0ff, var(--accent));
+  transition: width 0.2s ease;
+}
+
+.meter-note {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  min-height: 1.2em;
+}
+
+.panel.log {
+  min-height: 96px;
+  font-size: 0.85rem;
+  color: rgba(207, 218, 236, 0.85);
+  line-height: 1.5;
+}
+
 #dialogue strong {
   color: var(--accent);
 }
@@ -294,6 +384,62 @@ button:hover {
   border-radius: 1rem;
   text-align: center;
   max-width: 420px;
+}
+
+.overlay-content.minigame {
+  max-width: 520px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.minigame-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.minigame-key {
+  flex: 1 1 64px;
+  min-width: 64px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 0.7rem;
+  padding: 0.8rem;
+  text-align: center;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.75);
+  position: relative;
+}
+
+.minigame-key.active {
+  background: linear-gradient(120deg, rgba(59, 240, 255, 0.35), rgba(255, 94, 94, 0.35));
+  color: var(--text);
+  box-shadow: 0 0 18px rgba(59, 240, 255, 0.25);
+}
+
+.minigame-key.done {
+  background: rgba(74, 192, 255, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(74, 192, 255, 0.35);
+}
+
+.minigame-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.minigame-timer {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.hidden {
+  display: none !important;
 }
 
 @media (max-width: 900px) {

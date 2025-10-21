@@ -4,11 +4,12 @@ Disorderly Conduct is a browser-based, side-scrolling crime caper inspired by th
 
 ## Features
 
-- **Cinematic flow** – Navigate a functional main menu, dig into the control guide, and launch directly into the tutorial.
-- **Character customization** – Pick an alias, tweak jacket, pants, and accent colors, and decide between different mask styles before stepping out for the job.
-- **2D scrolling tutorial** – Learn to move, jump, and interact while making your way toward the QuickFix Mart with your randomly named accomplice.
-- **Step-by-step heist** – Signal your partner, intimidate the clerk, loot the register, and sprint for the alley while objectives and dialogue guide every beat.
-- **Scripted finale** – Responding officers corner you, your accomplice bails, and the mission concludes with a narrative summary of your arrest.
+- **Cinematic flow** – Navigate a moody menu, review the control primer, and drop straight into the robbery scenario without loading screens.
+- **Expanded customization** – Randomize or hand-pick an alias, mix-and-match jacket, pant, accent, glove, and shoe palettes, and choose a mask style and attitude that color in-game banter.
+- **Living HUD** – Track objectives, dialogue, a dynamic heat meter, and an intel feed that chronicles every slip-up and tactical note in real time.
+- **Interactive minigames** – Crack the convenience store mag-lock with a key-sequence challenge, then manage a tension meter by holding the clerk at bay before scooping cash with precision.
+- **Reactive tutorial** – Parallax skylines, environmental obstacles, and branching dialogue react to your inputs as you sprint, collide with barricades, or let the clerk inch toward the panic alarm.
+- **Inevitable finale** – Police units swarm the alley, your randomly named accomplice flees, and the capture overlay summarizes the fallout of the botched score.
 
 ## Getting Started
 
@@ -25,7 +26,19 @@ xdg-open index.html    # Linux (with xdg-utils installed)
 
 - **Move:** `A` / `D` or arrow keys
 - **Jump:** `Space`
-- **Interact:** `E`
+- **Interact / threaten:** `E`
+- **Hold the clerk at bay:** Hold `E` during the intimidation phase
+- **Scoop the register:** Hold `E` while inside the cash zone
+- **Lockpick prompts:** Follow the on-screen key sequence (Q, W, E, R, A, S, D)
+
+## Tutorial Flow Highlights
+
+1. **Recon & sync** – Approach your accomplice and signal when you are ready to breach.
+2. **Lockpick sequence** – Complete the key prompt minigame to bypass the QuickFix Mart door quietly.
+3. **Control the clerk** – Hold `E` to keep the fear meter high; slip-ups raise the heat and encourage the clerk to tap the alarm.
+4. **Grab & go** – Scoop the cash while monitoring the intel log for silent alarm updates.
+5. **Street dash** – Sprint toward the alley, jumping new barricade obstacles as the heat meter spikes.
+6. **Capture** – Police box you in, the accomplice ditches you, and the capture overlay delivers the bleak wrap-up.
 
 ## Project Structure
 
