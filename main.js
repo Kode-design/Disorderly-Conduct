@@ -398,7 +398,8 @@ class Game {
           closePanels();
           this.populateSettingsPanel(settingsPanel);
           settingsPanel.classList.add("active");
-          settingsPanel.querySelector('[role="tab"][data-tab="audio"]').focus();
+          const activeTab = settingsPanel.querySelector('[role="tab"][aria-selected="true"]');
+          window.requestAnimationFrame(() => activeTab?.focus());
           break;
         }
         case "close-panel": {
@@ -453,15 +454,19 @@ class Game {
     const skinTone = slot.appearance?.skinTone || "#f6d6c1";
     const hairColor = slot.appearance?.hairColor || "#2b2115";
     const objectivesStatus = slot.objectivesComplete ? "Checklist cleared" : "Checklist pending";
+    const hallwayStatus = slot.hallwayPreviewed ? "Hallway scouted" : "Hallway unseen";
+    const slotName = slot.name?.trim() ? slot.name : "Unnamed Inmate";
+    card.dataset.hallway = slot.hallwayPreviewed ? "scouted" : "unseen";
     card.innerHTML = `
       <div class="save-thumbnail" data-style="${hairStyle}">
         <span class="save-skin" style="background: ${skinTone};"></span>
         <span class="save-hair" style="background: ${hairColor};"></span>
       </div>
       <div class="save-meta">
-        <strong>Slot 01 — ${slot.name}</strong>
+        <strong>Slot 01 — ${slotName}</strong>
         <span class="save-progress">${progressLabel}</span>
         <span class="save-objectives">${objectivesStatus}</span>
+        <span class="save-hallway">${hallwayStatus}</span>
         <time datetime="${timestamp.toISOString()}">Saved ${timestamp.toLocaleString()}</time>
       </div>
     `;
@@ -475,28 +480,31 @@ class Game {
   populateSettingsPanel(panel, onClose) {
     const tabs = panel.querySelectorAll("[role=\"tab\"]");
     const sections = panel.querySelectorAll("[data-tab-panel]");
+    const tabList = Array.from(tabs);
+    const sectionMap = new Map(Array.from(sections, (section) => [section.dataset.tabPanel, section]));
 
     const setActiveTab = (tabName) => {
-      tabs.forEach((tab) => {
-        const isActive = tab.dataset.tab === tabName;
-        tab.setAttribute("aria-selected", isActive);
-      });
-      sections.forEach((section) => {
-        section.hidden = section.dataset.tabPanel !== tabName;
+      const resolved = tabName || "audio";
+      panel.dataset.activeTab = resolved;
+      tabList.forEach((tab) => {
+        const isActive = tab.dataset.tab === resolved;
+        tab.setAttribute("aria-selected", isActive ? "true" : "false");
+        tab.tabIndex = isActive ? 0 : -1;
+        const section = sectionMap.get(tab.dataset.tab);
+        if (section) section.hidden = !isActive;
       });
     };
 
-    tabs.forEach((tab) => {
+    tabList.forEach((tab, index) => {
       if (tab.dataset.bound === "true") return;
       tab.dataset.bound = "true";
       tab.addEventListener("click", () => setActiveTab(tab.dataset.tab));
       tab.addEventListener("keydown", (event) => {
         if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
           event.preventDefault();
-          const index = [...tabs].indexOf(tab);
-          const dir = event.key === "ArrowRight" ? 1 : -1;
-          const next = (index + dir + tabs.length) % tabs.length;
-          const nextTab = tabs[next];
+          const direction = event.key === "ArrowRight" ? 1 : -1;
+          const nextIndex = (index + direction + tabList.length) % tabList.length;
+          const nextTab = tabList[nextIndex];
           nextTab.focus();
           setActiveTab(nextTab.dataset.tab);
         }
@@ -577,7 +585,7 @@ class Game {
       });
     }
 
-    setActiveTab("audio");
+    setActiveTab(panel.dataset.activeTab || "audio");
   }
 
   createParallaxController(container) {
@@ -687,17 +695,60 @@ class Game {
       if (data.gallery) {
         const gallery = document.createElement("div");
         gallery.className = "extras-gallery";
+        const cards = [];
+
+        const status = document.createElement("p");
+        status.className = "extras-gallery-status";
+        status.setAttribute("role", "status");
+
+        const hint = document.createElement("p");
+        hint.className = "extras-gallery-hint";
+        hint.textContent = "Use ←/→ or click to inspect concept frames.";
+
+        const setActiveCard = (index) => {
+          if (!cards.length) return;
+          const nextIndex = (index + cards.length) % cards.length;
+          cards.forEach((card, idx) => {
+            const isActive = idx === nextIndex;
+            card.classList.toggle("active", isActive);
+            card.setAttribute("aria-selected", isActive ? "true" : "false");
+          });
+          status.textContent = `Frame ${nextIndex + 1} of ${cards.length}`;
+        };
+
         data.gallery.forEach((item, index) => {
           const card = document.createElement("article");
           card.className = "extras-card";
           card.dataset.index = String(index + 1);
+          card.tabIndex = 0;
+          card.setAttribute("role", "button");
+          card.setAttribute("aria-selected", index === 0 ? "true" : "false");
+          card.setAttribute("aria-label", `${item.title}. ${item.caption}`);
           const title = document.createElement("h4");
           title.textContent = item.title;
           const caption = document.createElement("p");
           caption.textContent = item.caption;
           card.append(title, caption);
+          card.addEventListener("focus", () => setActiveCard(index));
+          card.addEventListener("mouseenter", () => setActiveCard(index));
+          card.addEventListener("click", () => {
+            setActiveCard(index);
+            card.focus();
+          });
+          card.addEventListener("keydown", (event) => {
+            if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+              event.preventDefault();
+              const direction = event.key === "ArrowRight" ? 1 : -1;
+              const next = (index + direction + cards.length) % cards.length;
+              setActiveCard(next);
+              cards[next].focus();
+            }
+          });
           gallery.append(card);
+          cards.push(card);
         });
+        gallery.append(status, hint);
+        setActiveCard(0);
         container.append(gallery);
       }
 
@@ -898,7 +949,9 @@ class Game {
           name: working.name,
           appearance: structuredClone(working),
           timestamp: Date.now(),
-          progress: "IntroCutscene"
+          progress: "IntroCutscene",
+          objectivesComplete: false,
+          hallwayPreviewed: false
         };
         this.state.progress = "IntroCutscene";
         saveState(this.state);
@@ -1093,6 +1146,10 @@ class Game {
     const node = cloneTemplate("prison-template");
     const character = node.querySelector(".cell-character");
     const door = node.querySelector(".cell-door");
+    const stage = node.querySelector(".cell-stage");
+    const characterSize = { width: 60, height: 140 };
+    let stageRect = null;
+    const doorHint = node.querySelector("[data-door-hint]");
     const objectivesElements = {
       move: node.querySelector('[data-objective="move"]'),
       jump: node.querySelector('[data-objective="jump"]'),
@@ -1101,16 +1158,22 @@ class Game {
     };
     const completionOverlay = node.querySelector(".tutorial-complete");
     const resumeButton = completionOverlay?.querySelector('[data-action="resume-play"]');
-    const returnButton = completionOverlay?.querySelector('[data-action="return-menu"]');
+    const stepOutButton = completionOverlay?.querySelector('[data-action="step-out"]');
+    const completionReturnButton = completionOverlay?.querySelector('[data-action="return-menu"]');
+    const hallwayOverlay = node.querySelector(".hallway-preview");
+    const hallwayBackButton = hallwayOverlay?.querySelector('[data-action="hallway-back"]');
+    const hallwayReturnButton = hallwayOverlay?.querySelector('[data-action="return-menu"]');
     const objectivesState = {
       move: false,
       jump: false,
       attack: false,
       pause: false
     };
+    let doorInteractive = false;
+    let hallwayVisible = false;
 
     const showCompletion = () => {
-      if (!completionOverlay || !resumeButton || !returnButton) return;
+      if (!completionOverlay || !resumeButton || !completionReturnButton) return;
       if (!completionOverlay.hidden) return;
       completionOverlay.hidden = false;
       window.requestAnimationFrame(() => resumeButton.focus());
@@ -1119,6 +1182,105 @@ class Game {
     const hideCompletion = () => {
       if (!completionOverlay) return;
       completionOverlay.hidden = true;
+    };
+
+    const disableDoorInteraction = () => {
+      doorInteractive = false;
+      door.classList.remove("interactive", "highlight", "open");
+      door.setAttribute("aria-hidden", "true");
+      door.removeAttribute("role");
+      door.removeAttribute("tabindex");
+      if (doorHint) {
+        doorHint.hidden = true;
+        doorHint.classList.remove("show");
+      }
+    };
+
+    const enableDoorInteraction = () => {
+      doorInteractive = true;
+      door.classList.add("interactive");
+      door.classList.add("open");
+      door.removeAttribute("aria-hidden");
+      door.setAttribute("role", "button");
+      door.tabIndex = 0;
+      door.setAttribute("aria-label", "Step into the hallway");
+    };
+
+    const bounds = () => {
+      if (!stageRect || stageRect.width === 0) {
+        stageRect = stage.getBoundingClientRect();
+      }
+      return stageRect;
+    };
+
+    const isNearDoor = () => {
+      const rect = bounds();
+      if (!rect || !rect.width) return false;
+      return position.x + characterSize.width >= rect.width - 160;
+    };
+
+    const updateDoorHint = () => {
+      if (!doorHint) return;
+      if (!doorInteractive || hallwayVisible || paused) {
+        door.classList.remove("highlight");
+        doorHint.hidden = true;
+        doorHint.classList.remove("show");
+        return;
+      }
+      if (isNearDoor()) {
+        door.classList.add("highlight");
+        doorHint.hidden = false;
+        doorHint.classList.add("show");
+      } else {
+        door.classList.remove("highlight");
+        doorHint.hidden = true;
+        doorHint.classList.remove("show");
+      }
+    };
+
+    const openHallwayPreview = () => {
+      if (!doorInteractive || hallwayVisible) return;
+      hallwayVisible = true;
+      paused = true;
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+      }
+      hideCompletion();
+      if (doorHint) {
+        doorHint.hidden = true;
+        doorHint.classList.remove("show");
+      }
+      door.classList.remove("highlight");
+      if (hallwayOverlay) {
+        hallwayOverlay.hidden = false;
+        window.requestAnimationFrame(() => hallwayBackButton?.focus());
+      }
+      if (this.state.saveSlot) {
+        this.state.saveSlot.hallwayPreviewed = true;
+        this.state.saveSlot.timestamp = Date.now();
+        saveState(this.state);
+      }
+    };
+
+    const closeHallwayPreview = (reopenCompletion = true) => {
+      if (!hallwayVisible) return;
+      hallwayVisible = false;
+      if (hallwayOverlay) hallwayOverlay.hidden = true;
+      paused = false;
+      window.requestAnimationFrame(() => character.focus());
+      startLoop();
+      updateDoorHint();
+      if (reopenCompletion) {
+        showCompletion();
+      }
+    };
+
+    disableDoorInteraction();
+
+    const handleResize = () => {
+      stageRect = stage.getBoundingClientRect();
+      updateDoorHint();
     };
 
     const completeObjective = (key) => {
@@ -1130,7 +1292,7 @@ class Game {
 
     const checkAllObjectives = () => {
       if (Object.values(objectivesState).every(Boolean)) {
-        door.classList.add("open");
+        enableDoorInteraction();
         const list = node.querySelector(".tutorial-objectives h2");
         list.textContent = "Open the door.";
         node.querySelector(".tutorial-objectives")?.classList.add("complete");
@@ -1141,23 +1303,23 @@ class Game {
           saveState(this.state);
         }
         window.setTimeout(showCompletion, 600);
+        updateDoorHint();
       }
     };
 
     const velocity = { x: 0, y: 0 };
     const position = { x: 32, y: 0 };
-    const stage = node.querySelector(".cell-stage");
     const input = { left: false, right: false };
     let grounded = true;
     let attackCooldown = false;
     let animationFrame = null;
     let paused = false;
 
-    const bounds = () => stage.getBoundingClientRect();
-    const characterSize = { width: 60, height: 140 };
-
     const update = () => {
-      if (paused) return;
+      if (paused) {
+        updateDoorHint();
+        return;
+      }
       velocity.x = 0;
       const speed = 3;
       if (input.left) velocity.x -= speed;
@@ -1177,6 +1339,7 @@ class Game {
       }
 
       character.style.transform = `translate(${position.x}px, ${-position.y}px)`;
+      updateDoorHint();
       animationFrame = window.requestAnimationFrame(update);
     };
 
@@ -1186,8 +1349,11 @@ class Game {
     };
 
     startLoop();
+    window.addEventListener("resize", handleResize);
+    window.requestAnimationFrame(handleResize);
 
     const keydown = (event) => {
+      if (hallwayVisible) return;
       switch (event.code) {
         case "ArrowLeft":
         case "KeyA":
@@ -1231,6 +1397,7 @@ class Game {
     };
 
     const keyup = (event) => {
+      if (hallwayVisible) return;
       switch (event.code) {
         case "ArrowLeft":
         case "KeyA":
@@ -1247,11 +1414,32 @@ class Game {
 
     window.addEventListener("keydown", keydown);
     window.addEventListener("keyup", keyup);
+    const hallwayKeyHandler = (event) => {
+      if (event.key === "Escape" && hallwayVisible) {
+        event.preventDefault();
+        closeHallwayPreview();
+      }
+    };
+    window.addEventListener("keydown", hallwayKeyHandler);
+
+    door.addEventListener("click", () => {
+      if (!doorInteractive) return;
+      openHallwayPreview();
+    });
+
+    door.addEventListener("keydown", (event) => {
+      if (!doorInteractive) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openHallwayPreview();
+      }
+    });
 
     const pauseOverlay = node.querySelector(".pause-overlay");
     const pauseMenu = node.querySelector(".pause-menu");
 
     const togglePause = (value) => {
+      if (hallwayVisible) return;
       paused = value;
       pauseOverlay.hidden = !value;
       if (value) {
@@ -1263,6 +1451,7 @@ class Game {
       } else {
         window.requestAnimationFrame(() => character.focus());
         startLoop();
+        updateDoorHint();
       }
     };
 
@@ -1298,11 +1487,25 @@ class Game {
 
     resumeButton?.addEventListener("click", () => {
       hideCompletion();
+      updateDoorHint();
       window.requestAnimationFrame(() => character.focus());
     });
 
-    returnButton?.addEventListener("click", () => {
+    stepOutButton?.addEventListener("click", () => {
+      openHallwayPreview();
+    });
+
+    completionReturnButton?.addEventListener("click", () => {
       hideCompletion();
+      this.goTo("MainMenu");
+    });
+
+    hallwayBackButton?.addEventListener("click", () => {
+      closeHallwayPreview();
+    });
+
+    hallwayReturnButton?.addEventListener("click", () => {
+      closeHallwayPreview(false);
       this.goTo("MainMenu");
     });
 
@@ -1314,10 +1517,13 @@ class Game {
         objectivesState[key] = true;
         objectivesElements[key]?.classList.add("completed");
       });
-      door.classList.add("open");
+      enableDoorInteraction();
       node.querySelector(".tutorial-objectives h2").textContent = "Open the door.";
       node.querySelector(".tutorial-objectives")?.classList.add("complete");
-      window.setTimeout(showCompletion, 400);
+      window.setTimeout(() => {
+        showCompletion();
+        updateDoorHint();
+      }, 400);
     }
 
     return {
@@ -1325,6 +1531,8 @@ class Game {
       onCleanup: () => {
         window.removeEventListener("keydown", keydown);
         window.removeEventListener("keyup", keyup);
+        window.removeEventListener("keydown", hallwayKeyHandler);
+        window.removeEventListener("resize", handleResize);
         if (animationFrame) window.cancelAnimationFrame(animationFrame);
       }
     };
@@ -1370,6 +1578,10 @@ class Game {
     };
 
     this.populateSettingsPanel(wrapper, close);
+    window.requestAnimationFrame(() => {
+      const focusTarget = wrapper.querySelector('[role="tab"][aria-selected="true"]');
+      focusTarget?.focus();
+    });
     wrapper.querySelector("[data-action=\"dismiss\"]").addEventListener("click", close, { once: true });
     return wrapper;
   }

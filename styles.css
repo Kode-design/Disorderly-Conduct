@@ -414,6 +414,8 @@ button:hover {
   align-content: start;
   gap: 0.5rem;
   overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
 .extras-card::before {
@@ -437,6 +439,36 @@ button:hover {
   margin: 0;
   font-size: 0.85rem;
   color: rgba(241, 245, 249, 0.8);
+}
+
+.extras-card:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.85);
+  outline-offset: 3px;
+}
+
+.extras-card.active {
+  box-shadow: 0 1.5rem 3rem rgba(15, 23, 42, 0.5);
+  transform: translateY(-4px);
+}
+
+.extras-gallery-status,
+.extras-gallery-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(191, 219, 254, 0.85);
+  letter-spacing: 0.05em;
+  grid-column: 1 / -1;
+}
+
+.extras-gallery-status {
+  margin-top: 0.75rem;
+  font-weight: 600;
+}
+
+.extras-gallery-hint {
+  color: rgba(148, 163, 184, 0.85);
+  font-style: italic;
+  margin-top: 0.25rem;
 }
 
 .extras-footer {
@@ -517,6 +549,21 @@ button:hover {
 .save-meta {
   display: grid;
   gap: 0.35rem;
+}
+
+.save-hallway {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(148, 163, 184, 0.85);
+}
+
+.save-card[data-hallway="scouted"] .save-hallway {
+  color: rgba(45, 212, 191, 0.95);
+}
+
+.save-card[data-hallway="unseen"] .save-hallway {
+  color: rgba(148, 163, 184, 0.75);
 }
 
 .save-meta strong {
@@ -1114,6 +1161,41 @@ button:hover {
   box-shadow: 0 0 25px rgba(16, 185, 129, 0.5);
 }
 
+.cell-door.interactive {
+  cursor: pointer;
+  outline: none;
+}
+
+.cell-door.interactive:focus-visible,
+.cell-door.highlight {
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.8), 0 0 0 3px rgba(16, 185, 129, 0.45);
+  border-color: rgba(16, 185, 129, 0.6);
+}
+
+.door-hint {
+  position: absolute;
+  bottom: 1.5rem;
+  right: 2.5rem;
+  padding: 0.4rem 0.75rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: rgba(226, 232, 240, 0.9);
+  letter-spacing: 0.02em;
+  transform: translateY(1rem);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 2;
+}
+
+.cell-door.highlight + .door-hint,
+.door-hint.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .pause-overlay {
   position: absolute;
   inset: 0;
@@ -1169,6 +1251,55 @@ button:hover {
   gap: 1rem;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+.hallway-preview {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 9, 15, 0.9);
+  display: grid;
+  place-items: center;
+  z-index: 7;
+}
+
+.hallway-preview-card {
+  background: rgba(12, 19, 31, 0.97);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 1rem;
+  padding: 2rem;
+  max-width: min(440px, 92vw);
+  display: grid;
+  gap: 1.25rem;
+  text-align: center;
+  box-shadow: 0 2rem 3.5rem rgba(0, 0, 0, 0.5);
+}
+
+.hallway-preview-card h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  letter-spacing: 0.04em;
+}
+
+.hallway-preview-card p {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.hallway-preview-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  color: rgba(165, 180, 203, 0.95);
+  text-align: left;
+}
+
+.hallway-preview-card ul li::before {
+  content: "▹";
+  margin-right: 0.5rem;
+  color: var(--accent-strong);
 }
 
 .fade-in {

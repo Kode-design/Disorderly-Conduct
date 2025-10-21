@@ -188,7 +188,8 @@
         <div class="cell-stage">
           <div class="cell-background"></div>
           <div class="cell-character" role="img" aria-label="Player character" tabindex="0"></div>
-          <div class="cell-door" title="Exit"></div>
+          <div class="cell-door" title="Exit" aria-hidden="true"></div>
+          <div class="door-hint" data-door-hint hidden>Press Enter or Click to step into the hall</div>
         </div>
         <div class="pause-overlay" hidden>
           <div class="pause-menu" role="dialog" aria-modal="true">
@@ -204,6 +205,22 @@
             <p>You cleared the intake checklist. Head into the hall when you are ready.</p>
             <div class="tutorial-actions">
               <button data-action="resume-play">Keep Exploring</button>
+              <button data-action="step-out">Step Into Hallway</button>
+              <button data-action="return-menu">Return to Menu</button>
+            </div>
+          </div>
+        </div>
+        <div class="hallway-preview" hidden>
+          <div class="hallway-preview-card" role="dialog" aria-modal="true">
+            <h2>Cell Block C – Hallway Preview</h2>
+            <p>The lock hisses and the corridor yawns ahead. Floodlights sweep across damp concrete and distant voices echo.</p>
+            <ul>
+              <li>Meet Rook at the maintenance hatch.</li>
+              <li>Slip past the drone checkpoint.</li>
+              <li>Decide whether to trust the fixer’s intel.</li>
+            </ul>
+            <div class="tutorial-actions">
+              <button data-action="hallway-back">Back to Cell</button>
               <button data-action="return-menu">Return to Menu</button>
             </div>
           </div>
