@@ -1,13 +1,13 @@
 # Disorderly Conduct
 
-Disorderly Conduct is a browser-based, side-scrolling crime caper inspired by the high-stakes energy of classic open-world getaways. Built with vanilla HTML, CSS, and JavaScript, the game walks you through a fully scripted convenience-store heist that swiftly goes sideways.
+Disorderly Conduct is a browser-based, side-scrolling crime caper inspired by the high-stakes energy of classic open-world getaways. Built with vanilla HTML, CSS, and JavaScript, the game walks you through a fully scripted convenience-store heist—now centered on ripping the shop's BC2 cryptocurrency wallet—that swiftly goes sideways.
 
 ## Features
 
 - **Operational timeline HUD** – A mission tracker, radio comms log, intel feed, and dual Heat/Focus meters keep the score readable. Focus drifts with mistakes while the heat meter pumps into the ambient synth mix.
 - **Expanded customization** – Randomize or hand-pick an alias, mix jacket, pant, accent, glove, and shoe palettes, and choose a mask style and attitude that remix dialogue beats and comms flavor.
 - **Ambient audio engine** – Toggle a procedural synth bed that swells with rising heat and fractures when focus crumbles. Short stingers punctuate successes, failures, and dispatch chatter.
-- **Interactive minigames** – Crack the convenience-store mag-lock with a precision keyboard sequence, then reroute the CCTV junction via an arrow-key circuit trace before you breach the clerk.
+- **Interactive minigames** – Crack the convenience-store mag-lock with a precision keyboard sequence, reroute the CCTV junction via an arrow-key circuit trace, then siphon the BC2 wallet through a neon crypto-hacking handshake.
 - **Reactive tutorial** – Dynamic obstacles, accomplice callouts, timeline pulses, and intel alerts respond to delays, collisions, or hesitations, ratcheting pressure as the clerk reaches for the panic alarm.
 - **Inevitable finale** – Police box you in, the accomplice disappears down a side street, and the capture overlay chronicles how the run imploded.
 
@@ -28,7 +28,7 @@ xdg-open index.html    # Linux (with xdg-utils installed)
 - **Jump:** `Space`
 - **Interact / threaten:** `E`
 - **Hold the clerk at bay:** Hold `E` during the intimidation phase
-- **Scoop the register:** Hold `E` while inside the cash zone
+- **Siphon the BC2 wallet:** Press `E` at the glowing terminal to trigger the crypto handshake prompts (F/G/H/J/V/B and 1–4)
 - **Lockpick prompts:** Follow the on-screen key sequence (Q, W, E, R, A, S, D)
 - **CCTV circuit trace:** Match the glowing arrow key path after slipping inside
 
@@ -38,7 +38,7 @@ xdg-open index.html    # Linux (with xdg-utils installed)
 2. **Lockpick sequence** – Clear the mag-lock via the QWER/ASD prompt before the cameras stir.
 3. **Loop CCTV** – Slide inside, jam the glowing panel with the arrow-key circuit minigame, and watch the timeline acknowledge the ghosted feeds.
 4. **Control the clerk** – Hold `E` to keep the fear bar full; flagging focus or heat spikes trigger new intel and comms warnings.
-5. **Grab & go** – Bag the cash while the intel feed broadcasts silent-alarm escalations.
+5. **Grab & go** – Hijack the BC2 wallet by cycling neon handshake prompts as the intel feed warns of silent-alarm escalations.
 6. **Street dash** – Sprint toward the alley, hop road crew barricades, and listen as the ambient mix boils when heat hits the redline.
 7. **Capture** – Cruisers box you in, the accomplice bails, and the capture overlay wraps the run.
 

@@ -173,6 +173,8 @@ const KEY_MAP = {
   interact: ['KeyE']
 };
 
+const CRYPTO_KEYS = ['KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyV', 'KeyB', 'Digit1', 'Digit2', 'Digit3', 'Digit4'];
+
 window.addEventListener('keydown', (event) => {
   if (!currentGame || currentGame.isDestroyed) return;
   if (KEY_MAP.jump.includes(event.code) || event.code === 'Space') {
@@ -1036,8 +1038,19 @@ class DisorderlyConductGame {
     ctx.lineWidth = 3;
     ctx.strokeRect(doorX + 4, this.groundY - 108, 54, 106);
 
-    ctx.fillStyle = '#25394a';
-    ctx.fillRect(this.store.registerZone.x - 50, this.groundY - 150, 120, 60);
+    ctx.fillStyle = '#1d3342';
+    ctx.fillRect(this.store.registerZone.x - 50, this.groundY - 150, 120, 64);
+    ctx.fillStyle = '#10212f';
+    ctx.fillRect(this.store.registerZone.x - 44, this.groundY - 146, 108, 40);
+    ctx.fillStyle = '#33ffd0';
+    ctx.globalAlpha = 0.18;
+    ctx.fillRect(this.store.registerZone.x - 44, this.groundY - 146, 108, 40);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#33ffd0';
+    ctx.font = 'bold 12px "Segoe UI"';
+    ctx.textAlign = 'center';
+    ctx.fillText('BC2 NODE', this.store.registerZone.x + 10, this.groundY - 120);
+    ctx.textAlign = 'start';
 
     ctx.fillStyle = '#eac75f';
     ctx.font = '24px "Segoe UI"';
@@ -1077,8 +1090,8 @@ class DisorderlyConductGame {
     }
 
     if (this.tutorial.step === 'register') {
-      ctx.fillStyle = 'rgba(255, 230, 92, 0.7)';
-      ctx.fillRect(this.store.registerZone.x - 12, this.groundY - 110, 64, 10);
+      ctx.fillStyle = 'rgba(51, 255, 208, 0.65)';
+      ctx.fillRect(this.store.registerZone.x - 12, this.groundY - 112, 64, 14);
     }
   }
 
@@ -1300,15 +1313,18 @@ class TutorialController {
     this.wantedLevel = 0;
     this.policeArrived = false;
     this.clerkFear = 0.35;
-    this.cashGrab = 0;
+    this.bc2Transfer = 0;
+    this.hackFailures = 0;
     this.timeWithoutThreat = 0;
     this.flags = {
       intimidationHint: false,
-      registerHint: false,
+      walletPrompt: false,
       panicWarn: false,
       lockpickWarn: false,
       obstacleBrief: false,
-      surveillanceHint: false
+      surveillanceHint: false,
+      watchdogHint: false,
+      hackCheer: false
     };
   }
 
@@ -1322,7 +1338,7 @@ class TutorialController {
       { id: 'surveillance', label: 'Loop the CCTV' },
       { id: 'breach', label: 'Breach the interior' },
       { id: 'intimidate', label: 'Control the clerk' },
-      { id: 'register', label: 'Sweep the register' },
+      { id: 'register', label: 'Siphon the BC2 node' },
       { id: 'escape', label: 'Reach the alley' },
       { id: 'captured', label: 'Inevitable capture' }
     ]);
@@ -1424,7 +1440,7 @@ class TutorialController {
       timeLimit: 12,
       allowAbort: false,
       onComplete: () => this.onLockpickSuccess(),
-      onFail: () => this.onLockpickFail()
+      onFail: (reason) => this.onLockpickFail(reason)
     });
   }
 
@@ -1449,7 +1465,7 @@ class TutorialController {
     this.game.setStatusDetail('Press E at the panel to begin the circuit trace.');
   }
 
-  onLockpickFail() {
+  onLockpickFail(reason) {
     this.step = 'door';
     this.game.setHeat(this.game.heat.target + 12, 'Lockpick scrapes draw attention');
     this.game.appendIntel('Metal screeches — a nearby dog barks in response.');
@@ -1484,7 +1500,7 @@ class TutorialController {
       timeLimit: 11,
       allowAbort: true,
       onComplete: () => this.onSurveillanceSuccess(),
-      onFail: () => this.onSurveillanceFail()
+      onFail: (reason) => this.onSurveillanceFail(reason)
     });
   }
 
@@ -1507,7 +1523,7 @@ class TutorialController {
     this.game.setStatusDetail('Press E near the door to rush the clerk.');
   }
 
-  onSurveillanceFail() {
+  onSurveillanceFail(reason) {
     this.step = 'surveillance';
     this.game.adjustFocus(-12, 'Circuit sparks rattle your nerves');
     this.game.setHeat(this.game.heat.target + 10, 'Circuit sparks draw attention');
@@ -1583,46 +1599,110 @@ class TutorialController {
 
   beginRegisterGrab() {
     this.step = 'register';
-    this.cashGrab = 0;
+    this.bc2Transfer = 0;
+    this.hackFailures = 0;
     this.setWantedLevel(2);
-    this.game.setHeat(70, 'Silent alarm LED flickers red');
-    this.game.appendIntel('Register drawer slides open with the nightly drop.');
+    this.game.setHeat(70, 'Silent alarm LED flickers cyan');
+    this.game.appendIntel('Counter terminal unlocks its BC2 wallet module.');
     this.game.setTimelineStatus('intimidate', 'done');
     this.game.setTimelineStatus('register', 'active');
     this.game.pulseTimeline('register');
-    this.game.adjustFocus(4, 'Drawer pops without resistance');
+    this.game.adjustFocus(6, 'Wallet interface hums online');
     audioManager.pulse('success');
-    this.game.queueDialogue('Clerk', "It's open! Take it and go!");
-    this.game.setObjective('Grab the cash from the register (hold E).');
-    this.game.setStatusDetail('Bag fill: 0%');
+    this.game.queueDialogue('Clerk', 'Please! The BC2 wallet is all digital — just take it and go!');
+    this.game.setObjective('Siphon the BC2 wallet from the counter terminal (press E to hack).');
+    this.game.setStatusDetail('BC2 siphon: 0% • Press E inside the glow to inject the exploit.');
   }
 
   updateRegister(delta) {
-    if (this.game.isPlayerInZone(this.game.store.registerZone)) {
-      if (this.game.keys.interact) {
-        this.cashGrab = clamp(this.cashGrab + delta * 0.65, 0, 1);
-      } else {
-        this.cashGrab = clamp(this.cashGrab - delta * 0.25, 0, 1);
-      }
-      const fill = Math.round(this.cashGrab * 100);
-      this.game.setStatusDetail(`Bag fill: ${fill}% (hold E)`);
-      if (!this.flags.registerHint) {
-        this.flags.registerHint = true;
-        this.game.queueDialogue(this.game.alias, this.lineForAttitude({
-          professional: 'Scooping the bills. Keep watch.',
-          reckless: 'Grab it all! We deserve this.',
-          empathetic: 'Taking just the cash. No one gets hurt.'
-        }));
+    const insideTerminal = this.game.isPlayerInZone(this.game.store.registerZone);
+    const percent = Math.round(this.bc2Transfer * 100);
+
+    if (this.game.minigame.active && this.game.minigame.type === 'crypto') {
+      this.game.setStatusDetail(`BC2 siphon: ${percent}% • Handshake in progress...`);
+    } else if (insideTerminal) {
+      this.game.setStatusDetail(`BC2 siphon: ${percent}% • Press E to run the next exploit.`);
+      if (this.game.consumeInteract()) {
+        this.startCryptoHack();
       }
     } else {
-      this.game.setStatusDetail('Get behind the counter to reach the cash.');
+      this.game.setStatusDetail('Get behind the counter to reach the BC2 terminal.');
     }
 
-    this.game.setHeat(70 + this.cashGrab * 18, 'Silent alarm pinging dispatch');
+    const heatReason = this.bc2Transfer >= 0.85 ? 'Silent alarm pinging dispatch' : 'Silent alarm LED flickers cyan';
+    this.game.setHeat(70 + this.bc2Transfer * 18, heatReason);
 
-    if (this.cashGrab >= 1) {
+    if (this.bc2Transfer >= 1) {
       this.startEscape();
     }
+  }
+
+  startCryptoHack() {
+    if (this.game.minigame.active) return;
+    const sequenceLength = 5 + Math.floor(this.bc2Transfer * 4);
+    const sequence = generateCryptoSequence(sequenceLength);
+    const timeLimit = clamp(11 - this.bc2Transfer * 3.2, 6.5, 11);
+    if (!this.flags.walletPrompt) {
+      this.flags.walletPrompt = true;
+      this.game.queueDialogue(this.game.alias, this.lineForAttitude({
+        professional: 'Injecting exploit. Cover me while I siphon the BC2.',
+        reckless: 'Let the BC2 flow. Keep that clerk frozen.',
+        empathetic: 'Pulling the BC2 quietly. Stay calm.'
+      }));
+    }
+    this.game.appendIntel('BC2 terminal handshake engaged — spoofing wallet keys.');
+    this.game.adjustFocus(-7, 'Injecting malware under pressure');
+    this.game.minigame.startCryptoHack({
+      title: 'BC2 Wallet Breach',
+      instructions: 'Input the flashing handshake keys before the watchdog resets.',
+      sequence,
+      timeLimit,
+      allowAbort: true,
+      onComplete: () => this.onCryptoHackSuccess(),
+      onFail: (reason) => this.onCryptoHackFail(reason)
+    });
+  }
+
+  onCryptoHackSuccess() {
+    const chunk = clamp(0.45 - this.bc2Transfer * 0.18, 0.22, 0.48);
+    this.bc2Transfer = clamp(this.bc2Transfer + chunk, 0, 1);
+    const percent = Math.round(this.bc2Transfer * 100);
+    this.game.adjustFocus(8, 'Wallet handshake accepts your payload');
+    audioManager.pulse('success');
+    this.game.appendIntel('BC2 reserves reroute into your burner ledger.');
+    if (this.bc2Transfer >= 1) {
+      this.game.setStatusDetail('BC2 siphon: 100% • Transfer confirmed. Move!');
+    } else {
+      this.game.setStatusDetail(`BC2 siphon: ${percent}% • Re-initialize another exploit (press E).`);
+      if (!this.flags.hackCheer) {
+        this.flags.hackCheer = true;
+        this.game.queueDialogue(this.game.accompliceName, 'Nice work. Snag the rest before the sirens arrive.');
+      }
+    }
+    this.game.setHeat(74 + this.bc2Transfer * 18, 'Silent alarm sniffing anomalies');
+    if (this.bc2Transfer >= 1) {
+      this.startEscape();
+    }
+  }
+
+  onCryptoHackFail(reason) {
+    this.hackFailures += 1;
+    this.bc2Transfer = clamp(this.bc2Transfer - 0.1, 0, 1);
+    const percent = Math.round(this.bc2Transfer * 100);
+    const failureNote = reason === 'abort' ? 'You bail before the watchdog spikes the alarms.' : 'Watchdog flags the breach and reboots.';
+    const heatBump = reason === 'timeout' ? 16 : 10;
+    const focusPenalty = reason === 'abort' ? -4 : -9;
+    this.game.adjustFocus(focusPenalty, 'Wallet watchdog rattles your nerves');
+    this.game.setHeat(this.game.heat.target + heatBump, reason === 'abort' ? 'Exploit aborted mid-stream' : 'Wallet watchdog escalates');
+    this.game.appendIntel(`BC2 handshake collapses. ${failureNote}`);
+    if (!this.flags.watchdogHint) {
+      this.flags.watchdogHint = true;
+      this.game.queueDialogue(this.game.accompliceName, 'Their watchdog is nasty — stay sharp and run it again.');
+    }
+    if (reason !== 'abort') {
+      this.game.queueDialogue('Clerk', 'Please! Take it and leave already! The cops are coming!');
+    }
+    this.game.setStatusDetail(`BC2 siphon: ${percent}% • Reset at the terminal and press E.`);
   }
 
   startEscape() {
@@ -1637,9 +1717,9 @@ class TutorialController {
     this.game.adjustFocus(-8, 'Adrenaline spikes as you dash');
     this.game.queueDialogue(this.game.accompliceName, 'Run to the alley! I will swing the car around!');
     this.game.queueDialogue(this.game.alias, this.lineForAttitude({
-      professional: 'Cash secured. Move!',
+      professional: 'BC2 secured. Move!',
       reckless: 'Adrenaline! Let\'s fly!',
-      empathetic: 'Let\'s go before anyone gets hurt.'
+      empathetic: 'Ledger\'s copied. Let\'s go before anyone gets hurt.'
     }));
     this.game.setObjective('Sprint to the alley getaway point down the street (jump with Space).');
   }
@@ -1684,9 +1764,9 @@ class TutorialController {
     this.game.pulseTimeline('captured');
     this.game.adjustFocus(-18, 'Sirens shred your nerves');
     audioManager.pulse('alert');
-    this.game.queueDialogue('Officer', 'Freeze! LSPD! Drop the cash and get on the ground!');
+    this.game.queueDialogue('Officer', 'Freeze! LSPD! Drop the BC2 deck and get on the ground!');
     this.game.queueDialogue(this.game.alias, this.lineForAttitude({
-      professional: "We\'re boxed in! There\'s nowhere to run!",
+      professional: "We\'re boxed in! Ledger\'s gone — nowhere to run!",
       reckless: 'Ah, come on! We were so close!',
       empathetic: 'Just breathe... hands where they can see them.'
     }));
@@ -1734,6 +1814,7 @@ class MinigameOverlay {
     this.timeLeft = config.timeLimit || 10;
     this.onComplete = config.onComplete;
     this.onFail = config.onFail;
+    this.element.dataset.type = 'lockpick';
     this.titleEl.textContent = config.title || 'Minigame';
     this.instructionsEl.textContent = config.instructions || '';
     this.prepareSequenceElements();
@@ -1753,7 +1834,28 @@ class MinigameOverlay {
     this.timeLeft = config.timeLimit || 9;
     this.onComplete = config.onComplete;
     this.onFail = config.onFail;
+    this.element.dataset.type = 'circuit';
     this.titleEl.textContent = config.title || 'Circuit Trace';
+    this.instructionsEl.textContent = config.instructions || '';
+    this.prepareSequenceElements();
+    this.timerEl.textContent = `Timer: ${this.timeLeft.toFixed(1)}s`;
+    this.abortButton.classList.toggle('hidden', !config.allowAbort);
+    this.element.classList.remove('hidden');
+    if (typeof this.onConsume === 'function') {
+      this.onConsume();
+    }
+  }
+
+  startCryptoHack(config) {
+    this.active = true;
+    this.type = 'crypto';
+    this.sequence = config.sequence.slice();
+    this.index = 0;
+    this.timeLeft = config.timeLimit || 9;
+    this.onComplete = config.onComplete;
+    this.onFail = config.onFail;
+    this.element.dataset.type = 'crypto';
+    this.titleEl.textContent = config.title || 'Crypto Hack';
     this.instructionsEl.textContent = config.instructions || '';
     this.prepareSequenceElements();
     this.timerEl.textContent = `Timer: ${this.timeLeft.toFixed(1)}s`;
@@ -1785,6 +1887,18 @@ class MinigameOverlay {
         this.fail('wrong');
       }
       return true;
+    } else if (this.type === 'crypto') {
+      const allowed = CRYPTO_KEYS;
+      if (!allowed.includes(code)) {
+        return false;
+      }
+      if (code === this.sequence[this.index]) {
+        this.advanceSequence();
+      } else {
+        this.flashError(this.keyElements[this.index]);
+        this.fail('wrong');
+      }
+      return true;
     }
     return false;
   }
@@ -1796,6 +1910,9 @@ class MinigameOverlay {
     }
     if (this.type === 'circuit') {
       return ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'].includes(code);
+    }
+    if (this.type === 'crypto') {
+      return CRYPTO_KEYS.includes(code);
     }
     return false;
   }
@@ -1839,12 +1956,12 @@ class MinigameOverlay {
     }
   }
 
-  fail() {
+  fail(reason = 'fail') {
     const callback = this.onFail;
     this.close();
     audioManager.pulse('alert');
     if (typeof callback === 'function') {
-      callback();
+      callback(reason);
     }
   }
 
@@ -1859,6 +1976,7 @@ class MinigameOverlay {
     this.element.classList.add('hidden');
     this.timerEl.textContent = 'Timer: --';
     this.abortButton.classList.add('hidden');
+    delete this.element.dataset.type;
     if (typeof this.onRelease === 'function') {
       this.onRelease();
     }
@@ -1868,7 +1986,14 @@ class MinigameOverlay {
     this.bodyEl.innerHTML = '';
     this.keyElements = this.sequence.map((code, i) => {
       const keyEl = document.createElement('div');
-      keyEl.className = 'minigame-key' + (i === 0 ? ' active' : '');
+      let classes = 'minigame-key';
+      if (i === 0) {
+        classes += ' active';
+      }
+      if (this.type === 'crypto') {
+        classes += ' crypto';
+      }
+      keyEl.className = classes;
       keyEl.dataset.code = code;
       keyEl.textContent = keyLabelForCode(code);
       this.bodyEl.appendChild(keyEl);
@@ -1908,6 +2033,21 @@ function generateCircuitSequence(length) {
   return sequence;
 }
 
+function generateCryptoSequence(length) {
+  const keys = CRYPTO_KEYS;
+  const sequence = [];
+  let last = null;
+  for (let i = 0; i < length; i++) {
+    let next = keys[Math.floor(Math.random() * keys.length)];
+    if (next === last) {
+      next = keys[(keys.indexOf(next) + 2) % keys.length];
+    }
+    sequence.push(next);
+    last = next;
+  }
+  return sequence;
+}
+
 function keyLabelForCode(code) {
   const map = {
     KeyQ: 'Q',
@@ -1917,6 +2057,16 @@ function keyLabelForCode(code) {
     KeyA: 'A',
     KeyS: 'S',
     KeyD: 'D',
+    KeyF: 'F',
+    KeyG: 'G',
+    KeyH: 'H',
+    KeyJ: 'J',
+    KeyV: 'V',
+    KeyB: 'B',
+    Digit1: '1',
+    Digit2: '2',
+    Digit3: '3',
+    Digit4: '4',
     ArrowLeft: '←',
     ArrowRight: '→',
     ArrowUp: '↑',
