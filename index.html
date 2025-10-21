@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Disorderly Conduct</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <div id="menu" class="screen active">
+      <h1>Disorderly Conduct</h1>
+      <p class="tagline">A gritty 2D crime caper inspired by open-world chaos.</p>
+      <button id="startButton" class="primary">Start Tutorial</button>
+      <button id="howToPlayButton">How to Play</button>
+      <div id="howToPlay" class="modal hidden">
+        <div class="modal-content">
+          <h2>Controls &amp; Flow</h2>
+          <ul>
+            <li><span class="key">A / D</span> or <span class="key">Arrow Keys</span> to move.</li>
+            <li><span class="key">Space</span> to jump.</li>
+            <li><span class="key">E</span> to interact with points of interest.</li>
+          </ul>
+          <p>Move through the tutorial to learn the basics of a convenience store robbery gone wrong.</p>
+          <button id="closeHowToPlay">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="customization" class="screen">
+      <h2>Disguise Prep</h2>
+      <p>Choose a look for the job. Your accomplice will judge.</p>
+      <div class="customization-grid">
+        <div class="controls">
+          <label>Alias
+            <input type="text" id="aliasInput" maxlength="16" placeholder="Optional">
+          </label>
+          <label>Jacket Color
+            <input type="color" id="jacketColor" value="#2b3640">
+          </label>
+          <label>Pants Color
+            <input type="color" id="pantsColor" value="#5d2b86">
+          </label>
+          <label>Accent Color
+            <input type="color" id="accentColor" value="#d93f3f">
+          </label>
+          <label>Mask Style
+            <select id="maskStyle">
+              <option value="none">None</option>
+              <option value="bandana">Bandana</option>
+              <option value="full">Full Mask</option>
+            </select>
+          </label>
+        </div>
+        <div class="preview">
+          <h3>Preview</h3>
+          <div id="characterPreview" class="character">
+            <div class="head"></div>
+            <div class="mask"></div>
+            <div class="body"></div>
+            <div class="legs"></div>
+            <div class="accent"></div>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="backToMenu">Back</button>
+        <button id="beginTutorial" class="primary">Start the Job</button>
+      </div>
+    </div>
+
+    <div id="gameScreen" class="screen">
+      <canvas id="gameCanvas" width="960" height="540"></canvas>
+      <div id="ui">
+        <div id="objective" class="panel"></div>
+        <div id="dialogue" class="panel"></div>
+        <div id="status" class="panel"></div>
+      </div>
+      <div id="endOverlay" class="overlay hidden">
+        <div class="overlay-content">
+          <h2>Captured</h2>
+          <p id="endSummary"></p>
+          <button id="restartButton" class="primary">Back to Menu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
