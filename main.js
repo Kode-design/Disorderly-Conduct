@@ -1,5 +1,12 @@
 const STORAGE_KEY = "disorderlyConductDemoState-v1";
 
+const DEFAULT_APPEARANCE = {
+  skinTone: "#f6d6c1",
+  hairStyle: "Short",
+  hairColor: "#2b2115",
+  name: ""
+};
+
 const DEFAULT_STATE = {
   settings: {
     audio: { master: 80, music: 70, sfx: 80, mute: false },
@@ -8,12 +15,7 @@ const DEFAULT_STATE = {
     controls: { sensitivity: 55, invertY: false },
     accessibility: { colorblind: "Off", reduceFlashes: false, holdToPress: true }
   },
-  playerAppearance: {
-    skinTone: "#f6d6c1",
-    hairStyle: "Short",
-    hairColor: "#2b2115",
-    name: ""
-  },
+  playerAppearance: { ...DEFAULT_APPEARANCE },
   saveSlot: null,
   progress: "TitleScreen"
 };
@@ -21,13 +23,26 @@ const DEFAULT_STATE = {
 function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return structuredClone(DEFAULT_STATE);
+    if (!raw) return applyStateDefaults(structuredClone(DEFAULT_STATE));
     const parsed = JSON.parse(raw);
-    return mergeState(DEFAULT_STATE, parsed);
+    const merged = mergeState(DEFAULT_STATE, parsed);
+    return applyStateDefaults(merged);
   } catch (err) {
     console.warn("Failed to load save state", err);
-    return structuredClone(DEFAULT_STATE);
+    return applyStateDefaults(structuredClone(DEFAULT_STATE));
   }
+}
+
+function applyStateDefaults(state) {
+  if (!state.playerAppearance || typeof state.playerAppearance !== "object") {
+    state.playerAppearance = createDefaultAppearance();
+  } else {
+    state.playerAppearance = { ...DEFAULT_APPEARANCE, ...state.playerAppearance };
+    if (!state.playerAppearance.name || !state.playerAppearance.name.trim()) {
+      state.playerAppearance.name = getRandomName();
+    }
+  }
+  return state;
 }
 
 function mergeState(base, incoming) {
@@ -112,6 +127,16 @@ const RANDOM_NAMES = [
   "Lux",
   "Harper"
 ];
+
+function getRandomName() {
+  return RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)] ?? "Rook";
+}
+
+function createDefaultAppearance() {
+  const base = { ...DEFAULT_APPEARANCE };
+  base.name = getRandomName();
+  return base;
+}
 
 const PROHIBITED_NAMES = ["fuck", "shit", "bitch"];
 
@@ -371,6 +396,7 @@ class Game {
       switch (action) {
         case "start": {
           if (this.state.saveSlot && !window.confirm("Overwrite existing save?")) return;
+          this.state.playerAppearance = createDefaultAppearance();
           this.state.progress = "CharacterCreator";
           this.goTo("CharacterCreator");
           break;
