@@ -1,0 +1,11 @@
+{
+  "name": "disorderly-conduct",
+  "version": "1.0.0",
+  "description": "Top-down pixel mayhem sandbox built for the Disorderly Conduct web game.",
+  "scripts": {
+    "dev": "lite-server --baseDir=."
+  },
+  "devDependencies": {
+    "lite-server": "^2.6.1"
+  }
+}
