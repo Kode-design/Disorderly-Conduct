@@ -1,15 +1,15 @@
 # Disorderly Conduct
 
-Disorderly Conduct is a top-down, neon-soaked micro-sandbox inspired by classic open-world crime games. Dive into a bustling pixel metropolis, snatch loot, and outrun enforcers as the wanted level ticks upward.
+Disorderly Conduct is a top-down, neon-soaked micro-sandbox inspired by classic open-world crime games—reimagined with a 2025 pixel aesthetic. Dive into a bustling synth metropolis, snatch loot, and outrun enforcers as the wanted level ticks upward.
 
 ## Features
 
-- **Procedurally-styled city blocks** featuring roads, plazas, waterfronts, and parks.
-- **Dash-enabled player movement** with responsive camera follow and motion trails.
-- **Roaming civilians and traffic** that react to collisions and escalate your heat.
-- **Dynamic wanted system** that summons high-tech enforcers when chaos erupts.
-- **Glowing loot crates** scattered across the city to collect while managing your notoriety.
-- **Minimalist HUD** with objectives, control reference, and live heat meter.
+- **Procedural neon sprawl** with roads, plazas, waterfronts, and lush park pockets laid out on a Manhattan-style grid.
+- **Day/night lighting and reactive weather** that blend atmospheric gradients, ion rain, and holographic haze across the city.
+- **Animated hologram billboards** and synthwave scanline overlays that sell the futuristic pixel mood.
+- **Dash-enabled movement** with dynamic camera shake, luminous trails, and responsive collisions.
+- **Roaming civilians, traffic, and enforcer patrols** that escalate your heat and chase you through alleyways.
+- **Glassmorphic HUD** featuring City Pulse readouts, vitals, objectives, and accessibility-friendly live status messaging.
 
 ## Controls
 
@@ -41,10 +41,11 @@ npm run dev
 
 ## Development Notes
 
-- Core logic lives in [`src/main.js`](src/main.js) and renders to a pixel-art canvas.
-- Styling is handled by [`style.css`](style.css), leaning on retro-futuristic palettes.
-- Modify `generateWorld()` in `main.js` to tweak city generation rules or add new biomes.
-- Assets are drawn programmatically to keep the footprint light; feel free to extend with custom sprites.
+- Core gameplay, atmosphere systems, and rendering live in [`src/main.js`](src/main.js).
+- Styling, glass UI, and layout are in [`style.css`](style.css); tweak variables in `:root` to reskin the palette quickly.
+- `generateWorld()` orchestrates city generation, while `updateWorldAtmosphere()` drives the day/night cycle and weather.
+- `seedBillboards()` and `drawBillboards()` manage holographic signage—swap out slogans or colors to theme new districts.
+- Assets are drawn programmatically to keep the footprint light; feel free to extend with custom sprites or imported pixel art.
 
 ## License
 

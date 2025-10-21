@@ -9,40 +9,75 @@
   <body>
     <main class="layout">
       <section class="hud">
-        <h1>Disorderly Conduct</h1>
-        <p class="tagline">Top-down micro-sandbox chaos inspired by classic crime sims.</p>
-        <div class="stats">
-          <div><strong>Loot:</strong> <span id="loot-count">0 / 0</span></div>
-          <div><strong>Wanted:</strong> <span id="wanted-level">0</span></div>
-          <div><strong>Heat:</strong> <span id="heat-meter">0%</span></div>
+        <header class="hud-header">
+          <h1>
+            Disorderly Conduct
+            <span class="version-pill" aria-hidden="true">build 2025</span>
+          </h1>
+          <p class="tagline">
+            Synth-charged sandbox heists in a neon micro-metropolis. Surf the traffic, loot the city, vanish into the glow.
+          </p>
+        </header>
+
+        <div class="hud-panels">
+          <article class="hud-card stats-card" aria-live="polite">
+            <h2>Vitals</h2>
+            <dl class="stat-grid">
+              <div>
+                <dt>Loot</dt>
+                <dd id="loot-count">0 / 0</dd>
+              </div>
+              <div>
+                <dt>Wanted</dt>
+                <dd id="wanted-level">0</dd>
+              </div>
+              <div>
+                <dt>Heat</dt>
+                <dd id="heat-meter">0%</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article class="hud-card pulse-card">
+            <h2>City Pulse</h2>
+            <p id="cycle-indicator" class="pulse-indicator">Initializing weather mesh…</p>
+            <p class="microcopy">Keep moving to bleed heat. Dash through alleys to shake the enforcers.</p>
+          </article>
         </div>
-        <div class="objectives">
-          <h2>Objectives</h2>
-          <ul>
-            <li>Collect all glowing loot crates.</li>
-            <li>Outrun or outsmart the enforcers when your heat rises.</li>
-            <li>Use alleys and roadways to navigate the miniature metropolis.</li>
-          </ul>
+
+        <div class="hud-panels">
+          <article class="hud-card objectives" aria-describedby="objective-list">
+            <h2>Objectives</h2>
+            <ul id="objective-list">
+              <li>Collect every shimmering loot cache.</li>
+              <li>Break line of sight to drop the city's response.</li>
+              <li>Chain dashes and corners to stay unpredictable.</li>
+            </ul>
+          </article>
+
+          <article class="hud-card controls" aria-describedby="controls-list">
+            <h2>Controls</h2>
+            <ul id="controls-list">
+              <li>Move: WASD / Arrow Keys</li>
+              <li>Dash: Spacebar</li>
+              <li>Pause: P</li>
+            </ul>
+          </article>
         </div>
-        <div class="controls">
-          <h2>Controls</h2>
-          <ul>
-            <li>Move: WASD / Arrow Keys</li>
-            <li>Dash: Spacebar</li>
-            <li>Pause: P</li>
-          </ul>
-        </div>
-        <div class="status-message" id="status-message"></div>
+
+        <div class="status-message" id="status-message" role="status"></div>
       </section>
+
       <section class="game-container">
         <canvas id="game" width="384" height="216" aria-label="Disorderly Conduct game canvas" role="img"></canvas>
         <div class="overlay">
+          <div class="overlay-chrome"></div>
           <button id="resume-button" class="ghost-button" hidden>Resume</button>
         </div>
       </section>
     </main>
     <footer>
-      Disorderly Conduct &mdash; a miniature sandbox of crime and chaos.
+      Disorderly Conduct &mdash; synthwave heists in a pocket-sized sprawl.
     </footer>
     <script type="module" src="src/main.js"></script>
   </body>
