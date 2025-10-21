@@ -374,13 +374,27 @@ class DisorderlyConductGame {
       { x: 1280, width: 88, height: 36, type: 'spikes', active: false, triggered: false }
     ];
 
+    const interiorFloor = this.groundY - 26;
     this.store = {
       building: { x: 520, width: 260, height: 220 },
       doorZone: { x: 610, width: 72 },
-      registerZone: { x: 720, width: 70 },
-      counter: { x: 640, width: 190, height: 34 },
-      panelZone: { x: 660, width: 42, height: 118 }
+      interior: {
+        floorY: interiorFloor,
+        backWallTop: interiorFloor - 118,
+        widthInset: 22,
+        doorwayDepth: 28
+      },
+      registerZone: {
+        x: 720,
+        width: 70,
+        glowWidth: 78,
+        glowHeight: 56,
+        glowOffsetY: 104
+      },
+      counter: { x: 640, width: 190, height: 38, base: interiorFloor - 2 },
+      panelZone: { x: 660, width: 42, height: 118, top: interiorFloor - 132 }
     };
+    this.store.interiorOpen = false;
 
     this.escapeZone = { x: 1350 };
 
@@ -397,10 +411,11 @@ class DisorderlyConductGame {
     this.accompliceFleeing = false;
 
     this.clerk = {
-      x: this.store.registerZone.x + 20,
-      y: this.groundY,
+      x: this.store.registerZone.x + this.store.registerZone.width / 2,
+      y: this.store.interior.floorY,
       width: 30,
-      height: 70
+      height: 70,
+      inside: false
     };
 
     this.police = {
@@ -942,7 +957,7 @@ class DisorderlyConductGame {
     this.ctx.save();
     this.ctx.translate(-cameraX, 0);
     this.drawGround();
-    this.drawStore();
+    this.drawStoreBackdrop();
     if (this.tutorial.step === 'escape' || this.tutorial.step === 'captured') {
       this.drawEscapeMarker();
     }
@@ -952,6 +967,7 @@ class DisorderlyConductGame {
     }
     this.drawAccomplice();
     this.drawClerk();
+    this.drawStoreForeground();
     this.drawPlayer();
     this.ctx.restore();
   }
@@ -1023,76 +1039,177 @@ class DisorderlyConductGame {
     ctx.setLineDash([]);
   }
 
-  drawStore() {
+  drawStoreBackdrop() {
     const ctx = this.ctx;
-    const storeTop = this.groundY - this.store.building.height;
+    const building = this.store.building;
+    const storeTop = this.groundY - building.height;
+    const recessX = building.x + 14;
+    const recessY = storeTop + 60;
+    const recessW = building.width - 28;
+    const recessH = building.height - 74;
+    const interior = this.store.interior;
+    const interiorOpen = this.store.interiorOpen || ['breach', 'intimidate', 'register', 'escape', 'captured'].includes(this.tutorial.step);
+
     ctx.fillStyle = '#2f3c4e';
-    ctx.fillRect(this.store.building.x, storeTop, this.store.building.width, this.store.building.height);
+    ctx.fillRect(building.x, storeTop, building.width, building.height);
     ctx.fillStyle = '#212b38';
-    ctx.fillRect(this.store.building.x + 14, storeTop + 60, this.store.building.width - 28, this.store.building.height - 74);
+    ctx.fillRect(recessX, recessY, recessW, recessH);
 
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(recessX, recessY, recessW, recessH);
+    ctx.clip();
+
+    if (interiorOpen) {
+      const interiorGradient = ctx.createLinearGradient(0, interior.backWallTop, 0, interior.floorY + 24);
+      interiorGradient.addColorStop(0, '#111b27');
+      interiorGradient.addColorStop(0.55, '#152a3d');
+      interiorGradient.addColorStop(1, '#080f16');
+      ctx.fillStyle = interiorGradient;
+      ctx.fillRect(recessX, interior.backWallTop, recessW, interior.floorY - interior.backWallTop + 24);
+
+      ctx.fillStyle = 'rgba(58, 88, 130, 0.32)';
+      ctx.fillRect(recessX + 18, interior.backWallTop + 26, recessW - 36, 8);
+      ctx.fillRect(recessX + 18, interior.backWallTop + 64, recessW - 36, 8);
+
+      const floorGradient = ctx.createLinearGradient(0, interior.floorY - 16, 0, interior.floorY + 24);
+      floorGradient.addColorStop(0, '#1a2b3c');
+      floorGradient.addColorStop(1, '#080d15');
+      ctx.fillStyle = floorGradient;
+      ctx.fillRect(recessX, interior.floorY - 16, recessW, 40);
+
+      ctx.fillStyle = 'rgba(74, 192, 255, 0.12)';
+      ctx.fillRect(this.store.doorZone.x - 10, interior.floorY - interior.doorwayDepth, this.store.doorZone.width + 20, interior.doorwayDepth + 12);
+
+      const panel = this.store.panelZone;
+      ctx.fillStyle = '#162534';
+      ctx.fillRect(panel.x, panel.top, panel.width, panel.height);
+      ctx.fillStyle = '#20354b';
+      ctx.fillRect(panel.x + 4, panel.top + 6, panel.width - 8, panel.height - 12);
+      ctx.strokeStyle = 'rgba(74, 192, 255, 0.35)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(panel.x + 3, panel.top + 4, panel.width - 6, panel.height - 8);
+
+      if (['surveillance', 'surveillanceHack'].includes(this.tutorial.step)) {
+        ctx.strokeStyle = 'rgba(74, 192, 255, 0.85)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(panel.x + 2, panel.top + 2, panel.width - 4, panel.height - 4);
+        ctx.fillStyle = 'rgba(74, 192, 255, 0.22)';
+        ctx.fillRect(panel.x + 2, panel.top + 2, panel.width - 4, panel.height - 4);
+        ctx.fillStyle = '#a9f3ff';
+        ctx.font = '11px "Segoe UI"';
+        ctx.textAlign = 'center';
+        ctx.fillText('CCTV', panel.x + panel.width / 2, panel.top + 22);
+        ctx.textAlign = 'start';
+      }
+
+      const counter = this.store.counter;
+      const counterTop = counter.base - counter.height;
+      ctx.fillStyle = '#223347';
+      ctx.fillRect(counter.x, counterTop + 6, counter.width, counter.height - 10);
+
+      const nodeX = this.store.registerZone.x - 44;
+      const nodeY = counterTop - 50;
+      ctx.fillStyle = '#162635';
+      ctx.fillRect(nodeX, nodeY, 108, 60);
+      ctx.fillStyle = '#0f1924';
+      ctx.fillRect(nodeX + 4, nodeY + 8, 100, 42);
+      ctx.fillStyle = '#132c3b';
+      ctx.fillRect(nodeX + 8, nodeY + 12, 92, 28);
+    } else {
+      const glassGradient = ctx.createLinearGradient(0, recessY, 0, recessY + recessH);
+      glassGradient.addColorStop(0, 'rgba(23, 36, 52, 0.92)');
+      glassGradient.addColorStop(1, 'rgba(9, 15, 24, 0.88)');
+      ctx.fillStyle = glassGradient;
+      ctx.fillRect(recessX, recessY, recessW, recessH);
+
+      ctx.fillStyle = 'rgba(64, 86, 116, 0.32)';
+      ctx.fillRect(recessX + 26, recessY + 40, recessW - 52, 6);
+      ctx.fillRect(recessX + 26, recessY + 84, recessW - 52, 6);
+    }
+
+    ctx.restore();
+
+    ctx.fillStyle = '#1b2534';
+    ctx.fillRect(building.x + 6, storeTop + 54, building.width - 12, 6);
+  }
+
+  drawStoreForeground() {
+    const ctx = this.ctx;
+    const building = this.store.building;
+    const storeTop = this.groundY - building.height;
+    const interior = this.store.interior;
+    const interiorOpen = this.store.interiorOpen || ['breach', 'intimidate', 'register', 'escape', 'captured'].includes(this.tutorial.step);
     const doorX = this.store.doorZone.x;
-    ctx.fillStyle = '#0f1924';
-    ctx.fillRect(doorX, this.groundY - 110, 62, 110);
-    ctx.strokeStyle = '#4ac0ff';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(doorX + 4, this.groundY - 108, 54, 106);
+    const doorWidth = this.store.doorZone.width;
+    const doorTop = storeTop + 72;
+    const doorBottom = interior.floorY + 8;
 
+    ctx.fillStyle = '#1a2534';
+    ctx.fillRect(doorX - 6, storeTop + 64, 6, doorBottom - storeTop - 64);
+    ctx.fillRect(doorX + doorWidth, storeTop + 64, 6, doorBottom - storeTop - 64);
+
+    if (!interiorOpen) {
+      const glassGrad = ctx.createLinearGradient(0, doorTop, 0, doorBottom);
+      glassGrad.addColorStop(0, 'rgba(26, 50, 78, 0.9)');
+      glassGrad.addColorStop(1, 'rgba(9, 18, 28, 0.96)');
+      ctx.fillStyle = glassGrad;
+      ctx.fillRect(doorX + 4, doorTop, doorWidth - 8, doorBottom - doorTop);
+      ctx.fillStyle = 'rgba(90, 160, 255, 0.12)';
+      ctx.fillRect(doorX + 4, doorTop + 14, doorWidth - 8, 18);
+    } else {
+      ctx.fillStyle = '#0f1824';
+      ctx.fillRect(doorX + 4, interior.floorY - 6, doorWidth - 8, 12);
+      ctx.fillStyle = 'rgba(74, 192, 255, 0.14)';
+      ctx.fillRect(doorX + 8, interior.floorY - 24, doorWidth - 16, 14);
+    }
+
+    if (['door', 'lockpick', 'breach'].includes(this.tutorial.step)) {
+      ctx.fillStyle = 'rgba(74, 192, 255, 0.35)';
+      ctx.fillRect(doorX - 6, doorTop - 10, doorWidth + 12, doorBottom - doorTop + 20);
+    }
+
+    const counter = this.store.counter;
+    const counterTop = counter.base - counter.height;
+    ctx.fillStyle = '#3d5063';
+    ctx.fillRect(counter.x, counterTop, counter.width, counter.height);
+    ctx.fillStyle = '#52657a';
+    ctx.fillRect(counter.x, counterTop, counter.width, 10);
+    ctx.fillStyle = 'rgba(15, 22, 31, 0.65)';
+    ctx.fillRect(counter.x, counterTop + 10, counter.width, counter.height - 10);
+
+    const nodeX = this.store.registerZone.x - 44;
+    const nodeY = counterTop - 48;
     ctx.fillStyle = '#1d3342';
-    ctx.fillRect(this.store.registerZone.x - 50, this.groundY - 150, 120, 64);
+    ctx.fillRect(nodeX, nodeY, 108, 50);
     ctx.fillStyle = '#10212f';
-    ctx.fillRect(this.store.registerZone.x - 44, this.groundY - 146, 108, 40);
+    ctx.fillRect(nodeX + 4, nodeY + 6, 100, 34);
     ctx.fillStyle = '#33ffd0';
     ctx.globalAlpha = 0.18;
-    ctx.fillRect(this.store.registerZone.x - 44, this.groundY - 146, 108, 40);
+    ctx.fillRect(nodeX + 4, nodeY + 6, 100, 34);
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#33ffd0';
     ctx.font = 'bold 12px "Segoe UI"';
     ctx.textAlign = 'center';
-    ctx.fillText('BC2 NODE', this.store.registerZone.x + 10, this.groundY - 120);
+    ctx.fillText('BC2 NODE', this.store.registerZone.x + 10, nodeY + 27);
     ctx.textAlign = 'start';
+
+    if (this.tutorial.step === 'register') {
+      const glowTop = interior.floorY - this.store.registerZone.glowOffsetY;
+      const glowLeft = this.store.registerZone.x - (this.store.registerZone.glowWidth - this.store.registerZone.width) / 2;
+      ctx.fillStyle = 'rgba(51, 255, 208, 0.62)';
+      ctx.fillRect(glowLeft, glowTop, this.store.registerZone.glowWidth, this.store.registerZone.glowHeight);
+    }
+
+    ctx.strokeStyle = '#4ac0ff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(doorX + 4, doorTop, doorWidth - 8, doorBottom - doorTop);
 
     ctx.fillStyle = '#eac75f';
     ctx.font = '24px "Segoe UI"';
     ctx.textAlign = 'center';
-    ctx.fillText('QuickFix Mart', this.store.building.x + this.store.building.width / 2, storeTop + 40);
+    ctx.fillText('QuickFix Mart', building.x + building.width / 2, storeTop + 40);
     ctx.textAlign = 'start';
-
-    ctx.fillStyle = '#3f5266';
-    ctx.fillRect(this.store.counter.x, this.groundY - 50, this.store.counter.width, this.store.counter.height);
-
-    const panel = this.store.panelZone;
-    ctx.save();
-    ctx.fillStyle = '#182633';
-    ctx.fillRect(panel.x, this.groundY - panel.height, panel.width, panel.height);
-    ctx.fillStyle = '#1f2f44';
-    ctx.fillRect(panel.x + 4, this.groundY - panel.height + 6, panel.width - 8, panel.height - 12);
-    ctx.strokeStyle = 'rgba(74, 192, 255, 0.35)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(panel.x + 2, this.groundY - panel.height + 4, panel.width - 4, panel.height - 8);
-    if (['surveillance', 'surveillanceHack'].includes(this.tutorial.step)) {
-      ctx.strokeStyle = 'rgba(74, 192, 255, 0.85)';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(panel.x + 2, this.groundY - panel.height + 4, panel.width - 4, panel.height - 8);
-      ctx.fillStyle = 'rgba(74, 192, 255, 0.28)';
-      ctx.fillRect(panel.x + 2, this.groundY - panel.height + 4, panel.width - 4, panel.height - 8);
-      ctx.fillStyle = '#a9f3ff';
-      ctx.font = '11px "Segoe UI"';
-      ctx.textAlign = 'center';
-      ctx.fillText('CCTV', panel.x + panel.width / 2, this.groundY - panel.height + 20);
-      ctx.textAlign = 'start';
-    }
-    ctx.restore();
-
-    if (['door', 'lockpick', 'breach'].includes(this.tutorial.step)) {
-      ctx.fillStyle = 'rgba(74, 192, 255, 0.35)';
-      ctx.fillRect(this.store.doorZone.x - 6, this.groundY - 112, this.store.doorZone.width + 12, 116);
-    }
-
-    if (this.tutorial.step === 'register') {
-      ctx.fillStyle = 'rgba(51, 255, 208, 0.65)';
-      ctx.fillRect(this.store.registerZone.x - 12, this.groundY - 112, 64, 14);
-    }
   }
 
   drawEscapeMarker() {
@@ -1242,22 +1359,34 @@ class DisorderlyConductGame {
   drawClerk() {
     const ctx = this.ctx;
     const c = this.clerk;
-    const bodyHeight = 30;
+    const floorY = this.store.interior.floorY;
+    const engagedSteps = ['breach', 'intimidate', 'register', 'escape', 'captured'];
+    const stageInside = engagedSteps.includes(this.tutorial.step);
+    const interiorOpen = this.store.interiorOpen;
+    const alpha = stageInside ? 1 : interiorOpen ? 0.6 : 0.32;
+    const legHeight = 28;
+    const bodyHeight = 32;
     const headRadius = 14;
 
     ctx.save();
-    ctx.translate(c.x, c.y - 34);
-    ctx.fillStyle = 'rgba(15, 15, 15, 0.12)';
+    ctx.translate(c.x, floorY);
+    ctx.globalAlpha = alpha;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
     ctx.beginPath();
-    ctx.ellipse(0, c.height - 20, 16, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 6, 18, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    ctx.fillStyle = '#3d5570';
+    ctx.fillRect(-12, -legHeight, 24, legHeight);
     ctx.fillStyle = '#6993c5';
-    ctx.fillRect(-14, -bodyHeight, 28, bodyHeight);
+    ctx.fillRect(-14, -legHeight - bodyHeight, 28, bodyHeight);
     ctx.fillStyle = '#c98a5f';
     ctx.beginPath();
-    ctx.arc(0, -bodyHeight - headRadius, headRadius, 0, Math.PI * 2);
+    ctx.arc(0, -legHeight - bodyHeight - headRadius, headRadius, 0, Math.PI * 2);
     ctx.fill();
+    ctx.fillStyle = '#0f1924';
+    ctx.fillRect(-headRadius, -legHeight - bodyHeight - headRadius - 2, headRadius * 2, 6);
 
     ctx.restore();
   }
@@ -1316,6 +1445,9 @@ class TutorialController {
     this.bc2Transfer = 0;
     this.hackFailures = 0;
     this.timeWithoutThreat = 0;
+    this.game.store.interiorOpen = false;
+    this.game.clerk.inside = false;
+    this.game.clerk.y = this.game.store.interior.floorY;
     this.flags = {
       intimidationHint: false,
       walletPrompt: false,
@@ -1453,6 +1585,8 @@ class TutorialController {
     this.game.setTimelineStatus('surveillance', 'active');
     this.game.pulseTimeline('surveillance');
     this.game.adjustFocus(6, 'Tumblers fall silent in your hands');
+    this.game.store.interiorOpen = true;
+    this.game.clerk.inside = true;
     audioManager.pulse('success');
     this.game.queueDialogue(this.game.accompliceName, 'Nice work. Loop their cameras so no one clocks your face.');
     this.game.queueDialogue(this.game.alias, this.lineForAttitude({
@@ -1476,6 +1610,8 @@ class TutorialController {
     this.game.adjustFocus(-8, 'Tumblers slip under pressure');
     this.game.setTimelineStatus('lockpick', 'alert');
     this.game.pulseTimeline('lockpick');
+    this.game.store.interiorOpen = false;
+    this.game.clerk.inside = false;
     window.setTimeout(() => {
       this.game.setTimelineStatus('lockpick', 'active');
     }, 700);
@@ -1509,6 +1645,8 @@ class TutorialController {
     this.game.setTimelineStatus('surveillance', 'done');
     this.game.setTimelineStatus('breach', 'active');
     this.game.pulseTimeline('breach');
+    this.game.store.interiorOpen = true;
+    this.game.clerk.inside = true;
     this.game.adjustFocus(9, 'Cameras loop static');
     audioManager.pulse('success');
     this.game.setHeat(30, 'CCTV feeds now looping static');
@@ -1543,6 +1681,7 @@ class TutorialController {
     this.robberyTimer = 0;
     this.clerkFear = 0.45;
     this.timeWithoutThreat = 0;
+    this.game.clerk.inside = true;
     this.setWantedLevel(1);
     this.game.setHeat(52, 'Clerk startled into compliance');
     this.game.appendIntel('Clerk stumbles back, eyeing the silent alarm.');
