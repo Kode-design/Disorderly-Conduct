@@ -8,6 +8,13 @@
 </head>
 <body>
   <div id="app">
+    <div id="globalBar">
+      <span class="brand">Midnight Crew Systems</span>
+      <div class="global-controls">
+        <button id="audioToggle" type="button" class="ghost">🔇 Audio Off</button>
+        <span class="session-clock" id="sessionClock">--:--</span>
+      </div>
+    </div>
     <div id="menu" class="screen active">
       <h1>Disorderly Conduct</h1>
       <p class="tagline">A gritty 2D crime caper inspired by open-world chaos.</p>
@@ -92,8 +99,12 @@
       <canvas id="gameCanvas" width="960" height="540"></canvas>
       <div id="ui">
         <div id="objective" class="panel"></div>
-        <div id="dialogue" class="panel"></div>
         <div id="status" class="panel"></div>
+        <div id="dialogue" class="panel"></div>
+        <div id="timelinePanel" class="panel timeline">
+          <div class="timeline-header">Job Timeline</div>
+          <ol id="timelineList" class="timeline-list"></ol>
+        </div>
         <div id="heatPanel" class="panel meter">
           <div class="meter-label">Heat</div>
           <div class="meter-bar">
@@ -101,7 +112,21 @@
           </div>
           <div class="meter-note"></div>
         </div>
-        <div id="intelLog" class="panel log"></div>
+        <div id="focusPanel" class="panel meter">
+          <div class="meter-label">Focus</div>
+          <div class="meter-bar">
+            <div class="meter-fill"></div>
+          </div>
+          <div class="meter-note"></div>
+        </div>
+        <div id="intelPanel" class="panel log">
+          <div class="log-title">Intel Feed</div>
+          <div id="intelLog" class="log-content"></div>
+        </div>
+        <div id="commsPanel" class="panel log">
+          <div class="log-title">Radio Comms</div>
+          <div id="commsLog" class="log-content"></div>
+        </div>
       </div>
       <div id="minigameOverlay" class="overlay hidden">
         <div class="overlay-content minigame">

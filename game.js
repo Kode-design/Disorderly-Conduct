@@ -43,11 +43,22 @@ const statusEl = document.getElementById('status');
 const heatPanel = document.getElementById('heatPanel');
 const heatFill = heatPanel.querySelector('.meter-fill');
 const heatNote = heatPanel.querySelector('.meter-note');
+const focusPanel = document.getElementById('focusPanel');
+const focusFill = focusPanel.querySelector('.meter-fill');
+const focusNote = focusPanel.querySelector('.meter-note');
+const timelineList = document.getElementById('timelineList');
 const intelLog = document.getElementById('intelLog');
+const commsLog = document.getElementById('commsLog');
 const endOverlay = document.getElementById('endOverlay');
 const endSummary = document.getElementById('endSummary');
 const minigameOverlayEl = document.getElementById('minigameOverlay');
 const minigameAbortButton = document.getElementById('minigameAbort');
+const audioToggle = document.getElementById('audioToggle');
+const sessionClock = document.getElementById('sessionClock');
+
+if (sessionClock) {
+  sessionClock.textContent = '--:--';
+}
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -60,6 +71,10 @@ startButton.addEventListener('click', () => {
 
 backToMenuButton.addEventListener('click', () => {
   showScreen('menu');
+  if (sessionClock) {
+    sessionClock.textContent = '--:--';
+    sessionClock.classList.remove('active');
+  }
 });
 
 restartButton.addEventListener('click', () => {
@@ -69,6 +84,10 @@ restartButton.addEventListener('click', () => {
   }
   endOverlay.classList.add('hidden');
   showScreen('menu');
+  if (sessionClock) {
+    sessionClock.textContent = '--:--';
+    sessionClock.classList.remove('active');
+  }
 });
 
 howToPlayButton.addEventListener('click', () => {
@@ -167,6 +186,149 @@ window.addEventListener('keyup', (event) => {
   currentGame.handleKeyUp(event.code);
 });
 
+class AudioManager {
+  constructor(toggleButton) {
+    this.toggleButton = toggleButton;
+    this.context = null;
+    this.masterGain = null;
+    this.ambientOsc = null;
+    this.filter = null;
+    this.textureGain = null;
+    this.enabled = false;
+    this.updateButton();
+  }
+
+  async toggle() {
+    if (this.enabled) {
+      this.disable();
+    } else {
+      await this.enable();
+    }
+  }
+
+  async enable() {
+    if (!this.context) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) {
+        this.updateButton('unsupported');
+        return;
+      }
+      this.context = new Ctx();
+      this.masterGain = this.context.createGain();
+      this.masterGain.gain.value = 0.2;
+      this.masterGain.connect(this.context.destination);
+    }
+    if (this.context.state === 'suspended') {
+      await this.context.resume();
+    }
+    this.startAmbient();
+    this.enabled = true;
+    this.updateButton();
+  }
+
+  disable() {
+    this.stopAmbient();
+    this.enabled = false;
+    this.updateButton();
+  }
+
+  updateButton(state) {
+    if (!this.toggleButton) return;
+    if (state === 'unsupported') {
+      this.toggleButton.textContent = '🔇 Audio N/A';
+      this.toggleButton.disabled = true;
+      return;
+    }
+    this.toggleButton.textContent = this.enabled ? '🔊 Audio On' : '🔇 Audio Off';
+  }
+
+  startAmbient() {
+    if (!this.context || this.ambientOsc) return;
+    this.ambientOsc = this.context.createOscillator();
+    this.ambientOsc.type = 'sawtooth';
+    this.ambientOsc.frequency.value = 110;
+
+    this.filter = this.context.createBiquadFilter();
+    this.filter.type = 'lowpass';
+    this.filter.frequency.value = 220;
+
+    this.textureGain = this.context.createGain();
+    this.textureGain.gain.value = 0.16;
+
+    this.ambientOsc.connect(this.filter);
+    this.filter.connect(this.textureGain);
+    this.textureGain.connect(this.masterGain);
+
+    this.ambientOsc.start();
+  }
+
+  stopAmbient() {
+    if (this.ambientOsc) {
+      try {
+        this.ambientOsc.stop();
+      } catch (err) {
+        // oscillator may already be stopped
+      }
+      this.ambientOsc.disconnect();
+      this.ambientOsc = null;
+    }
+    if (this.filter) {
+      this.filter.disconnect();
+      this.filter = null;
+    }
+    if (this.textureGain) {
+      this.textureGain.disconnect();
+      this.textureGain = null;
+    }
+  }
+
+  updateMix(heatValue, focusValue, captured = false) {
+    if (!this.context || !this.enabled) return;
+    const normalizedHeat = clamp(heatValue / 100, 0, 1);
+    const normalizedFocus = clamp(focusValue / 100, 0, 1);
+    if (this.filter) {
+      const targetFrequency = 220 + normalizedHeat * 1100;
+      this.filter.frequency.linearRampToValueAtTime(targetFrequency, this.context.currentTime + 0.3);
+    }
+    if (this.textureGain) {
+      const base = captured ? 0.05 : 0.16;
+      const targetGain = clamp(base + normalizedHeat * 0.28 - (1 - normalizedFocus) * 0.12, 0.03, 0.6);
+      this.textureGain.gain.cancelScheduledValues(this.context.currentTime);
+      this.textureGain.gain.linearRampToValueAtTime(targetGain, this.context.currentTime + 0.35);
+    }
+  }
+
+  pulse(type = 'dialogue') {
+    if (!this.context || !this.enabled) return;
+    const osc = this.context.createOscillator();
+    const gain = this.context.createGain();
+    osc.type = 'triangle';
+    const freq = type === 'alert' ? 560 : type === 'success' ? 880 : 640;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, this.context.currentTime);
+    gain.gain.linearRampToValueAtTime(0.12, this.context.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, this.context.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start();
+    osc.stop(this.context.currentTime + 0.4);
+  }
+
+  idle() {
+    if (!this.context || !this.enabled || !this.textureGain) return;
+    this.textureGain.gain.cancelScheduledValues(this.context.currentTime);
+    this.textureGain.gain.linearRampToValueAtTime(0.04, this.context.currentTime + 0.5);
+  }
+}
+
+const audioManager = new AudioManager(audioToggle);
+
+if (audioToggle) {
+  audioToggle.addEventListener('click', () => {
+    audioManager.toggle();
+  });
+}
+
 class DisorderlyConductGame {
   constructor(canvas, context, profile) {
     this.canvas = canvas;
@@ -214,7 +376,8 @@ class DisorderlyConductGame {
       building: { x: 520, width: 260, height: 220 },
       doorZone: { x: 610, width: 72 },
       registerZone: { x: 720, width: 70 },
-      counter: { x: 640, width: 190, height: 34 }
+      counter: { x: 640, width: 190, height: 34 },
+      panelZone: { x: 660, width: 42, height: 118 }
     };
 
     this.escapeZone = { x: 1350 };
@@ -260,8 +423,18 @@ class DisorderlyConductGame {
       reason: 'Neighborhood calm'
     };
 
+    this.focus = { value: 82, target: 82, reason: 'Steady hands' };
+    focusFill.style.width = '82%';
+    focusNote.textContent = 'Steady • Study the block';
+
     this.intelEntries = [];
-    intelLog.innerHTML = '';
+    this.timelineEntries = [];
+    this.commsEntries = [];
+    this.elapsedTime = 0;
+    this.displayedSeconds = -1;
+    this.clearIntel();
+    this.clearComms();
+    this.resetTimeline([]);
 
     this.backgroundPhase = Math.random() * Math.PI * 2;
 
@@ -292,6 +465,19 @@ class DisorderlyConductGame {
     this.ended = false;
     this.lastTime = performance.now();
     this.clearIntel();
+    this.clearComms();
+    this.resetTimeline([]);
+    this.elapsedTime = 0;
+    this.displayedSeconds = -1;
+    this.focus.value = 84;
+    this.focus.target = 84;
+    this.focus.reason = 'Calm breathing';
+    this.updateFocus(0);
+    this.updateClock();
+    if (sessionClock) {
+      sessionClock.textContent = '00:00';
+      sessionClock.classList.add('active');
+    }
     this.setHeat(5, 'Neighborhood calm');
     this.resetObstacles();
     this.tutorial.start();
@@ -306,6 +492,11 @@ class DisorderlyConductGame {
     this.running = false;
     this.isDestroyed = true;
     this.minigame.close();
+    audioManager.idle();
+    if (sessionClock) {
+      sessionClock.classList.remove('active');
+    }
+    this.displayedSeconds = -1;
   }
 
   handleKeyDown(code) {
@@ -385,12 +576,19 @@ class DisorderlyConductGame {
       this.handleMovement(delta);
     }
 
+    if (!this.ended) {
+      this.elapsedTime += delta;
+      this.updateClock(delta);
+    }
+
     this.minigame.update(delta);
     this.updateDialogue(delta);
     this.tutorial.update(delta);
     this.updateAccomplice(delta);
     this.updatePolice(delta);
     this.updateHeat(delta);
+    this.updateFocus(delta);
+    audioManager.updateMix(this.heat.value, this.focus.value, this.tutorial.step === 'captured');
     this.backgroundPhase += delta * 0.25;
 
     if (this.tutorial.step === 'escape') {
@@ -475,6 +673,8 @@ class DisorderlyConductGame {
       ? `${speaker} (You)`
       : speaker;
     dialogueEl.innerHTML = `<strong>${speakerName}:</strong> ${text}`;
+    audioManager.pulse('dialogue');
+    this.appendComm(speakerName, text);
   }
 
   queueDialogue(speaker, text, duration = 3) {
@@ -530,19 +730,125 @@ class DisorderlyConductGame {
     heatNote.textContent = `${descriptor} • ${this.heat.reason}`;
   }
 
+  setFocus(target, note) {
+    this.focus.target = clamp(target, 0, 100);
+    if (note) {
+      this.focus.reason = note;
+    }
+  }
+
+  adjustFocus(delta, note) {
+    this.setFocus(this.focus.target + delta, note);
+  }
+
+  updateFocus(delta) {
+    const diff = this.focus.target - this.focus.value;
+    if (Math.abs(diff) > 0.1) {
+      this.focus.value += diff * Math.min(1, delta * 3.2);
+    } else {
+      this.focus.value = this.focus.target;
+    }
+
+    if (!this.ended && this.heat.value > 70) {
+      const stressDrain = (this.heat.value - 70) * delta * 0.35;
+      this.focus.value = clamp(this.focus.value - stressDrain, 0, 100);
+    }
+
+    const clamped = clamp(this.focus.value, 0, 100);
+    focusFill.style.width = `${clamped}%`;
+    const descriptor = clamped >= 82
+      ? 'Zen'
+      : clamped >= 64
+        ? 'Collected'
+        : clamped >= 46
+          ? 'Wary'
+          : clamped >= 24
+            ? 'Shaken'
+            : 'Fractured';
+    focusNote.textContent = `${descriptor} • ${this.focus.reason}`;
+  }
+
   clearIntel() {
     this.intelEntries = [];
-    intelLog.innerHTML = '';
+    if (intelLog) {
+      intelLog.innerHTML = '';
+    }
   }
 
   appendIntel(entry) {
     this.intelEntries.push(entry);
-    while (this.intelEntries.length > 4) {
+    while (this.intelEntries.length > 6) {
       this.intelEntries.shift();
     }
-    intelLog.innerHTML = this.intelEntries
-      .map((line) => `<div>› ${line}</div>`)
+    if (intelLog) {
+      intelLog.innerHTML = this.intelEntries
+        .map((line) => `<div class="intel-entry">› ${line}</div>`)
+        .join('');
+      intelLog.scrollTop = intelLog.scrollHeight;
+    }
+  }
+
+  clearComms() {
+    this.commsEntries = [];
+    if (commsLog) {
+      commsLog.innerHTML = '';
+    }
+  }
+
+  appendComm(speaker, message) {
+    if (!commsLog) return;
+    this.commsEntries.push({ speaker, message });
+    while (this.commsEntries.length > 7) {
+      this.commsEntries.shift();
+    }
+    commsLog.innerHTML = this.commsEntries
+      .map((entry) => `<div class="comm-entry"><span class="speaker">${entry.speaker}:</span><span class="content">${entry.message}</span></div>`)
       .join('');
+    commsLog.scrollTop = commsLog.scrollHeight;
+  }
+
+  resetTimeline(steps) {
+    this.timelineEntries = [];
+    if (!timelineList) return;
+    timelineList.innerHTML = '';
+    steps.forEach((step) => {
+      const item = document.createElement('li');
+      item.className = 'timeline-step';
+      item.dataset.step = step.id;
+      item.textContent = step.label;
+      timelineList.appendChild(item);
+      this.timelineEntries.push({ id: step.id, label: step.label, element: item, status: 'pending' });
+    });
+  }
+
+  setTimelineStatus(id, status) {
+    const entry = this.timelineEntries.find((item) => item.id === id);
+    if (!entry) return;
+    entry.status = status;
+    entry.element.classList.remove('active', 'done', 'alert', 'pulse');
+    if (status) {
+      entry.element.classList.add(status);
+    }
+  }
+
+  pulseTimeline(id) {
+    const entry = this.timelineEntries.find((item) => item.id === id);
+    if (!entry) return;
+    entry.element.classList.remove('pulse');
+    void entry.element.offsetWidth;
+    entry.element.classList.add('pulse');
+  }
+
+  updateClock() {
+    if (!sessionClock) return;
+    const totalSeconds = Math.floor(this.elapsedTime);
+    if (totalSeconds === this.displayedSeconds) {
+      return;
+    }
+    this.displayedSeconds = totalSeconds;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    sessionClock.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
   updateAccomplice(delta) {
@@ -616,6 +922,9 @@ class DisorderlyConductGame {
     this.appendIntel('Noise erupts as debris scatters across the alley.');
     this.setHeat(this.heat.target + 8, 'Crash echoes through the block');
     this.queueDialogue('Dispatcher', 'Unit reported a loud bang near QuickFix Mart. Patrol rerouting!');
+    this.adjustFocus(-10, 'Collision rattles your stance');
+    this.pulseTimeline('escape');
+    audioManager.pulse('alert');
   }
 
   isPlayerInZone(zone) {
@@ -734,9 +1043,33 @@ class DisorderlyConductGame {
     ctx.font = '24px "Segoe UI"';
     ctx.textAlign = 'center';
     ctx.fillText('QuickFix Mart', this.store.building.x + this.store.building.width / 2, storeTop + 40);
+    ctx.textAlign = 'start';
 
     ctx.fillStyle = '#3f5266';
     ctx.fillRect(this.store.counter.x, this.groundY - 50, this.store.counter.width, this.store.counter.height);
+
+    const panel = this.store.panelZone;
+    ctx.save();
+    ctx.fillStyle = '#182633';
+    ctx.fillRect(panel.x, this.groundY - panel.height, panel.width, panel.height);
+    ctx.fillStyle = '#1f2f44';
+    ctx.fillRect(panel.x + 4, this.groundY - panel.height + 6, panel.width - 8, panel.height - 12);
+    ctx.strokeStyle = 'rgba(74, 192, 255, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(panel.x + 2, this.groundY - panel.height + 4, panel.width - 4, panel.height - 8);
+    if (['surveillance', 'surveillanceHack'].includes(this.tutorial.step)) {
+      ctx.strokeStyle = 'rgba(74, 192, 255, 0.85)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(panel.x + 2, this.groundY - panel.height + 4, panel.width - 4, panel.height - 8);
+      ctx.fillStyle = 'rgba(74, 192, 255, 0.28)';
+      ctx.fillRect(panel.x + 2, this.groundY - panel.height + 4, panel.width - 4, panel.height - 8);
+      ctx.fillStyle = '#a9f3ff';
+      ctx.font = '11px "Segoe UI"';
+      ctx.textAlign = 'center';
+      ctx.fillText('CCTV', panel.x + panel.width / 2, this.groundY - panel.height + 20);
+      ctx.textAlign = 'start';
+    }
+    ctx.restore();
 
     if (['door', 'lockpick', 'breach'].includes(this.tutorial.step)) {
       ctx.fillStyle = 'rgba(74, 192, 255, 0.35)';
@@ -947,6 +1280,9 @@ class DisorderlyConductGame {
     if (this.ended) return;
     this.ended = true;
     this.setStatusDetail('Arrested and processed.');
+    this.setTimelineStatus('captured', 'done');
+    this.pulseTimeline('captured');
+    audioManager.pulse('alert');
     endSummary.textContent = `${this.alias} was captured outside the alley while ${this.accompliceName} vanished into the night.`;
     endOverlay.classList.remove('hidden');
   }
@@ -971,13 +1307,27 @@ class TutorialController {
       registerHint: false,
       panicWarn: false,
       lockpickWarn: false,
-      obstacleBrief: false
+      obstacleBrief: false,
+      surveillanceHint: false
     };
   }
 
   start() {
     this.reset();
     const { game } = this;
+    game.resetTimeline([
+      { id: 'approach', label: 'Rendezvous with driver' },
+      { id: 'door', label: 'Signal the breach' },
+      { id: 'lockpick', label: 'Bypass the mag-lock' },
+      { id: 'surveillance', label: 'Loop the CCTV' },
+      { id: 'breach', label: 'Breach the interior' },
+      { id: 'intimidate', label: 'Control the clerk' },
+      { id: 'register', label: 'Sweep the register' },
+      { id: 'escape', label: 'Reach the alley' },
+      { id: 'captured', label: 'Inevitable capture' }
+    ]);
+    game.setTimelineStatus('approach', 'active');
+    game.pulseTimeline('approach');
     game.setObjective(`Head to the QuickFix Mart and meet ${game.accompliceName}.`);
     this.setWantedLevel(0);
     game.setStatusDetail('Move with purpose but keep it subtle.');
@@ -998,6 +1348,10 @@ class TutorialController {
       case 'approach':
         if (player.x >= this.game.accomplice.x - 50) {
           this.step = 'door';
+          this.game.setTimelineStatus('approach', 'done');
+          this.game.setTimelineStatus('door', 'active');
+          this.game.pulseTimeline('door');
+          this.game.adjustFocus(3, 'Driver trusts your pacing');
           this.game.appendIntel('Accomplice is positioned beside the entrance.');
           this.game.queueDialogue(this.game.accompliceName, 'There you are. Keep it slick and quiet, rookie.');
           this.game.queueDialogue(this.game.alias, this.lineForAttitude({
@@ -1016,6 +1370,18 @@ class TutorialController {
         }
         break;
       case 'lockpick':
+        break;
+      case 'surveillance':
+        if (!this.flags.surveillanceHint && this.game.player.x >= this.game.store.panelZone.x - 40) {
+          this.flags.surveillanceHint = true;
+          this.game.queueDialogue(this.game.accompliceName, 'Glow on the panel inside? Kill the cameras before you rush him!');
+        }
+        this.game.setStatusDetail('Disable the CCTV junction inside and press E.');
+        if (this.game.isPlayerInZone(this.game.store.panelZone) && this.game.consumeInteract()) {
+          this.startSurveillanceHack();
+        }
+        break;
+      case 'surveillanceHack':
         break;
       case 'breach':
         if (this.game.isPlayerInZone(this.game.store.doorZone) && this.game.consumeInteract()) {
@@ -1043,6 +1409,10 @@ class TutorialController {
 
   startLockpick() {
     this.step = 'lockpick';
+    this.game.setTimelineStatus('door', 'done');
+    this.game.setTimelineStatus('lockpick', 'active');
+    this.game.pulseTimeline('lockpick');
+    this.game.adjustFocus(-4, 'Lockpick work under pressure');
     this.game.setStatusDetail('Cycle the cheap mag-lock quickly.');
     this.game.appendIntel('Lockpick attempt underway...');
     this.game.queueDialogue(this.game.accompliceName, "Don't fumble this. Cameras are sleeping for another minute.");
@@ -1052,19 +1422,31 @@ class TutorialController {
       instructions: 'Hit the highlighted keys in order to lift the tumblers.',
       sequence,
       timeLimit: 12,
+      allowAbort: false,
       onComplete: () => this.onLockpickSuccess(),
       onFail: () => this.onLockpickFail()
     });
   }
 
   onLockpickSuccess() {
-    this.step = 'breach';
+    this.step = 'surveillance';
     this.setWantedLevel(1);
     this.game.setHeat(32, 'Door bypassed without alarms');
-    this.game.appendIntel('Door quietly unlatches. Clerk inside hasn\'t noticed.');
-    this.game.queueDialogue(this.game.accompliceName, 'Nice work. Keep it smooth inside. I\'ll loop the dashcam again.');
-    this.game.setObjective('Ease the door open and slip inside (press E).');
-    this.game.setStatusDetail('Press E near the door to rush the clerk.');
+    this.game.appendIntel('Door quietly unlatches. CCTV still sweeps the floor.');
+    this.game.setTimelineStatus('lockpick', 'done');
+    this.game.setTimelineStatus('surveillance', 'active');
+    this.game.pulseTimeline('surveillance');
+    this.game.adjustFocus(6, 'Tumblers fall silent in your hands');
+    audioManager.pulse('success');
+    this.game.queueDialogue(this.game.accompliceName, 'Nice work. Loop their cameras so no one clocks your face.');
+    this.game.queueDialogue(this.game.alias, this.lineForAttitude({
+      professional: 'Sliding to the panel now.',
+      reckless: 'CCTV is next on the chopping block.',
+      empathetic: 'Killing the feed so nobody panics.'
+    }));
+    this.game.queueDialogue(this.game.accompliceName, 'Signal me once the feeds are snow. Then rush the clerk.');
+    this.game.setObjective('Slip inside and disable the glowing CCTV panel (press E).');
+    this.game.setStatusDetail('Press E at the panel to begin the circuit trace.');
   }
 
   onLockpickFail() {
@@ -1075,7 +1457,69 @@ class TutorialController {
       this.game.queueDialogue(this.game.accompliceName, 'Careful! You trip that alarm and we\'re toast. Try again.');
       this.flags.lockpickWarn = true;
     }
+    this.game.adjustFocus(-8, 'Tumblers slip under pressure');
+    this.game.setTimelineStatus('lockpick', 'alert');
+    this.game.pulseTimeline('lockpick');
+    window.setTimeout(() => {
+      this.game.setTimelineStatus('lockpick', 'active');
+    }, 700);
+    this.game.setTimelineStatus('door', 'active');
+    audioManager.pulse('alert');
     this.game.setStatusDetail('Steady hands. Try the lock again.');
+  }
+
+  startSurveillanceHack() {
+    this.step = 'surveillanceHack';
+    this.game.adjustFocus(-5, 'Rewiring CCTV circuits under pressure');
+    this.game.setTimelineStatus('surveillance', 'active');
+    this.game.pulseTimeline('surveillance');
+    this.game.setHeat(36, 'CCTV feed still active');
+    this.game.appendIntel('CCTV DVR hums dangerously — reroute it fast.');
+    this.game.queueDialogue(this.game.accompliceName, 'Loop those cameras or every cruiser will have your face.');
+    const sequence = generateCircuitSequence(6);
+    this.game.minigame.startCircuitTrace({
+      title: 'Loop CCTV Feeds',
+      instructions: 'Trace the circuit path using the arrow keys in order.',
+      sequence,
+      timeLimit: 11,
+      allowAbort: true,
+      onComplete: () => this.onSurveillanceSuccess(),
+      onFail: () => this.onSurveillanceFail()
+    });
+  }
+
+  onSurveillanceSuccess() {
+    this.step = 'breach';
+    this.game.setTimelineStatus('surveillance', 'done');
+    this.game.setTimelineStatus('breach', 'active');
+    this.game.pulseTimeline('breach');
+    this.game.adjustFocus(9, 'Cameras loop static');
+    audioManager.pulse('success');
+    this.game.setHeat(30, 'CCTV feeds now looping static');
+    this.game.appendIntel('CCTV feeds loop to grainy static — interior eyes are blind.');
+    this.game.queueDialogue(this.game.accompliceName, 'Ghosted. Hit the clerk fast before someone wanders by.');
+    this.game.queueDialogue(this.game.alias, this.lineForAttitude({
+      professional: 'Panel is looped. Breaching now.',
+      reckless: 'Feeds are fried. Let’s spook the clerk.',
+      empathetic: 'Nobody will see this. Going in calm.'
+    }));
+    this.game.setObjective('Ease the door open and slip inside (press E).');
+    this.game.setStatusDetail('Press E near the door to rush the clerk.');
+  }
+
+  onSurveillanceFail() {
+    this.step = 'surveillance';
+    this.game.adjustFocus(-12, 'Circuit sparks rattle your nerves');
+    this.game.setHeat(this.game.heat.target + 10, 'Circuit sparks draw attention');
+    this.game.appendIntel('Static arcs from the CCTV housing. Reset and try again.');
+    this.game.queueDialogue(this.game.accompliceName, 'Careful! Those sparks will wake the block. Reset and finish it.');
+    this.game.setTimelineStatus('surveillance', 'alert');
+    this.game.pulseTimeline('surveillance');
+    audioManager.pulse('alert');
+    window.setTimeout(() => {
+      this.game.setTimelineStatus('surveillance', 'active');
+    }, 700);
+    this.game.setStatusDetail('Regroup, then press E at the panel again.');
   }
 
   beginIntimidation() {
@@ -1086,6 +1530,10 @@ class TutorialController {
     this.setWantedLevel(1);
     this.game.setHeat(52, 'Clerk startled into compliance');
     this.game.appendIntel('Clerk stumbles back, eyeing the silent alarm.');
+    this.game.setTimelineStatus('breach', 'done');
+    this.game.setTimelineStatus('intimidate', 'active');
+    this.game.pulseTimeline('intimidate');
+    this.game.adjustFocus(-6, 'Tension spikes as you draw down');
     this.game.queueDialogue(this.game.alias, this.lineForAttitude({
       professional: 'Nobody move! Empty the register now.',
       reckless: 'Hands up! Blink wrong and this gets messy.',
@@ -1139,6 +1587,11 @@ class TutorialController {
     this.setWantedLevel(2);
     this.game.setHeat(70, 'Silent alarm LED flickers red');
     this.game.appendIntel('Register drawer slides open with the nightly drop.');
+    this.game.setTimelineStatus('intimidate', 'done');
+    this.game.setTimelineStatus('register', 'active');
+    this.game.pulseTimeline('register');
+    this.game.adjustFocus(4, 'Drawer pops without resistance');
+    audioManager.pulse('success');
     this.game.queueDialogue('Clerk', "It's open! Take it and go!");
     this.game.setObjective('Grab the cash from the register (hold E).');
     this.game.setStatusDetail('Bag fill: 0%');
@@ -1178,6 +1631,10 @@ class TutorialController {
     this.game.activateObstacles();
     this.game.setHeat(82, '911 call logged — patrol en route');
     this.game.appendIntel('Distant sirens crescendo. Time to bolt.');
+    this.game.setTimelineStatus('register', 'done');
+    this.game.setTimelineStatus('escape', 'active');
+    this.game.pulseTimeline('escape');
+    this.game.adjustFocus(-8, 'Adrenaline spikes as you dash');
     this.game.queueDialogue(this.game.accompliceName, 'Run to the alley! I will swing the car around!');
     this.game.queueDialogue(this.game.alias, this.lineForAttitude({
       professional: 'Cash secured. Move!',
@@ -1222,6 +1679,11 @@ class TutorialController {
     this.game.setHeat(100, 'Cruisers box you in on both sides');
     this.game.appendIntel('Multiple squads converge from both ends of the street.');
     this.game.appendIntel(`${this.game.accompliceName} vanishes into a side street, leaving you alone.`);
+    this.game.setTimelineStatus('escape', 'done');
+    this.game.setTimelineStatus('captured', 'alert');
+    this.game.pulseTimeline('captured');
+    this.game.adjustFocus(-18, 'Sirens shred your nerves');
+    audioManager.pulse('alert');
     this.game.queueDialogue('Officer', 'Freeze! LSPD! Drop the cash and get on the ground!');
     this.game.queueDialogue(this.game.alias, this.lineForAttitude({
       professional: "We\'re boxed in! There\'s nowhere to run!",
@@ -1274,17 +1736,28 @@ class MinigameOverlay {
     this.onFail = config.onFail;
     this.titleEl.textContent = config.title || 'Minigame';
     this.instructionsEl.textContent = config.instructions || '';
-    this.bodyEl.innerHTML = '';
-    this.keyElements = this.sequence.map((code, i) => {
-      const keyEl = document.createElement('div');
-      keyEl.className = 'minigame-key' + (i === 0 ? ' active' : '');
-      keyEl.dataset.code = code;
-      keyEl.textContent = keyLabelForCode(code);
-      this.bodyEl.appendChild(keyEl);
-      return keyEl;
-    });
+    this.prepareSequenceElements();
     this.timerEl.textContent = `Timer: ${this.timeLeft.toFixed(1)}s`;
-    this.abortButton.classList.add('hidden');
+    this.abortButton.classList.toggle('hidden', !config.allowAbort);
+    this.element.classList.remove('hidden');
+    if (typeof this.onConsume === 'function') {
+      this.onConsume();
+    }
+  }
+
+  startCircuitTrace(config) {
+    this.active = true;
+    this.type = 'circuit';
+    this.sequence = config.sequence.slice();
+    this.index = 0;
+    this.timeLeft = config.timeLimit || 9;
+    this.onComplete = config.onComplete;
+    this.onFail = config.onFail;
+    this.titleEl.textContent = config.title || 'Circuit Trace';
+    this.instructionsEl.textContent = config.instructions || '';
+    this.prepareSequenceElements();
+    this.timerEl.textContent = `Timer: ${this.timeLeft.toFixed(1)}s`;
+    this.abortButton.classList.toggle('hidden', !config.allowAbort);
     this.element.classList.remove('hidden');
     if (typeof this.onConsume === 'function') {
       this.onConsume();
@@ -1300,6 +1773,18 @@ class MinigameOverlay {
         this.fail('wrong');
       }
       return true;
+    } else if (this.type === 'circuit') {
+      const allowed = ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'];
+      if (!allowed.includes(code)) {
+        return false;
+      }
+      if (code === this.sequence[this.index]) {
+        this.advanceSequence();
+      } else {
+        this.flashError(this.keyElements[this.index]);
+        this.fail('wrong');
+      }
+      return true;
     }
     return false;
   }
@@ -1308,6 +1793,9 @@ class MinigameOverlay {
     if (!this.active) return false;
     if (this.type === 'lockpick') {
       return ['ShiftLeft', 'ShiftRight'].includes(code);
+    }
+    if (this.type === 'circuit') {
+      return ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'].includes(code);
     }
     return false;
   }
@@ -1318,6 +1806,7 @@ class MinigameOverlay {
     if (currentEl) {
       currentEl.classList.remove('active');
       currentEl.classList.add('done');
+      currentEl.classList.remove('error');
     }
     this.index += 1;
     if (this.index >= this.sequence.length) {
@@ -1344,6 +1833,7 @@ class MinigameOverlay {
   succeed() {
     const callback = this.onComplete;
     this.close();
+    audioManager.pulse('success');
     if (typeof callback === 'function') {
       callback();
     }
@@ -1352,6 +1842,7 @@ class MinigameOverlay {
   fail() {
     const callback = this.onFail;
     this.close();
+    audioManager.pulse('alert');
     if (typeof callback === 'function') {
       callback();
     }
@@ -1367,9 +1858,29 @@ class MinigameOverlay {
     this.bodyEl.innerHTML = '';
     this.element.classList.add('hidden');
     this.timerEl.textContent = 'Timer: --';
+    this.abortButton.classList.add('hidden');
     if (typeof this.onRelease === 'function') {
       this.onRelease();
     }
+  }
+
+  prepareSequenceElements() {
+    this.bodyEl.innerHTML = '';
+    this.keyElements = this.sequence.map((code, i) => {
+      const keyEl = document.createElement('div');
+      keyEl.className = 'minigame-key' + (i === 0 ? ' active' : '');
+      keyEl.dataset.code = code;
+      keyEl.textContent = keyLabelForCode(code);
+      this.bodyEl.appendChild(keyEl);
+      return keyEl;
+    });
+  }
+
+  flashError(element) {
+    if (!element) return;
+    element.classList.remove('error');
+    void element.offsetWidth;
+    element.classList.add('error');
   }
 }
 
@@ -1378,6 +1889,21 @@ function generateLockpickSequence(length) {
   const sequence = [];
   for (let i = 0; i < length; i++) {
     sequence.push(keys[Math.floor(Math.random() * keys.length)]);
+  }
+  return sequence;
+}
+
+function generateCircuitSequence(length) {
+  const keys = ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'];
+  const sequence = [];
+  let last = null;
+  for (let i = 0; i < length; i++) {
+    let next = keys[Math.floor(Math.random() * keys.length)];
+    if (next === last) {
+      next = keys[(keys.indexOf(next) + 1) % keys.length];
+    }
+    sequence.push(next);
+    last = next;
   }
   return sequence;
 }

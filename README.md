@@ -4,12 +4,12 @@ Disorderly Conduct is a browser-based, side-scrolling crime caper inspired by th
 
 ## Features
 
-- **Cinematic flow** – Navigate a moody menu, review the control primer, and drop straight into the robbery scenario without loading screens.
-- **Expanded customization** – Randomize or hand-pick an alias, mix-and-match jacket, pant, accent, glove, and shoe palettes, and choose a mask style and attitude that color in-game banter.
-- **Living HUD** – Track objectives, dialogue, a dynamic heat meter, and an intel feed that chronicles every slip-up and tactical note in real time.
-- **Interactive minigames** – Crack the convenience store mag-lock with a key-sequence challenge, then manage a tension meter by holding the clerk at bay before scooping cash with precision.
-- **Reactive tutorial** – Parallax skylines, environmental obstacles, and branching dialogue react to your inputs as you sprint, collide with barricades, or let the clerk inch toward the panic alarm.
-- **Inevitable finale** – Police units swarm the alley, your randomly named accomplice flees, and the capture overlay summarizes the fallout of the botched score.
+- **Operational timeline HUD** – A mission tracker, radio comms log, intel feed, and dual Heat/Focus meters keep the score readable. Focus drifts with mistakes while the heat meter pumps into the ambient synth mix.
+- **Expanded customization** – Randomize or hand-pick an alias, mix jacket, pant, accent, glove, and shoe palettes, and choose a mask style and attitude that remix dialogue beats and comms flavor.
+- **Ambient audio engine** – Toggle a procedural synth bed that swells with rising heat and fractures when focus crumbles. Short stingers punctuate successes, failures, and dispatch chatter.
+- **Interactive minigames** – Crack the convenience-store mag-lock with a precision keyboard sequence, then reroute the CCTV junction via an arrow-key circuit trace before you breach the clerk.
+- **Reactive tutorial** – Dynamic obstacles, accomplice callouts, timeline pulses, and intel alerts respond to delays, collisions, or hesitations, ratcheting pressure as the clerk reaches for the panic alarm.
+- **Inevitable finale** – Police box you in, the accomplice disappears down a side street, and the capture overlay chronicles how the run imploded.
 
 ## Getting Started
 
@@ -30,15 +30,17 @@ xdg-open index.html    # Linux (with xdg-utils installed)
 - **Hold the clerk at bay:** Hold `E` during the intimidation phase
 - **Scoop the register:** Hold `E` while inside the cash zone
 - **Lockpick prompts:** Follow the on-screen key sequence (Q, W, E, R, A, S, D)
+- **CCTV circuit trace:** Match the glowing arrow key path after slipping inside
 
 ## Tutorial Flow Highlights
 
-1. **Recon & sync** – Approach your accomplice and signal when you are ready to breach.
-2. **Lockpick sequence** – Complete the key prompt minigame to bypass the QuickFix Mart door quietly.
-3. **Control the clerk** – Hold `E` to keep the fear meter high; slip-ups raise the heat and encourage the clerk to tap the alarm.
-4. **Grab & go** – Scoop the cash while monitoring the intel log for silent alarm updates.
-5. **Street dash** – Sprint toward the alley, jumping new barricade obstacles as the heat meter spikes.
-6. **Capture** – Police box you in, the accomplice ditches you, and the capture overlay delivers the bleak wrap-up.
+1. **Recon & sync** – Approach your accomplice, pulse the timeline into the next beat, and steady your focus meter.
+2. **Lockpick sequence** – Clear the mag-lock via the QWER/ASD prompt before the cameras stir.
+3. **Loop CCTV** – Slide inside, jam the glowing panel with the arrow-key circuit minigame, and watch the timeline acknowledge the ghosted feeds.
+4. **Control the clerk** – Hold `E` to keep the fear bar full; flagging focus or heat spikes trigger new intel and comms warnings.
+5. **Grab & go** – Bag the cash while the intel feed broadcasts silent-alarm escalations.
+6. **Street dash** – Sprint toward the alley, hop road crew barricades, and listen as the ambient mix boils when heat hits the redline.
+7. **Capture** – Cruisers box you in, the accomplice bails, and the capture overlay wraps the run.
 
 ## Project Structure
 
