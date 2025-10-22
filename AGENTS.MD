@@ -5,3 +5,4 @@
 - You have no time limitations, and should work minimum of one hour if possible.
 - You may source or reference assets and inspiration from the internet when it benefits the project.
 - Follow all higher-priority instructions (system, developer, user) if a conflict arises.
+- Use all available tools, such as Javascript libraries, to full extent.
