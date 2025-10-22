@@ -37,10 +37,38 @@ export default class GameState {
     this.storyFlags = {};
     this.inventory = [];
     this.codexUnlocked = new Set();
+    this.resetMissionStats();
   }
 
   setProfile(profile) {
     this.playerProfile = profile;
+  }
+
+  resetMissionStats() {
+    this.missionStats = {
+      infiltration: 100,
+      noiseFootprint: 0,
+      detectionEvents: 0,
+      elapsed: 0,
+    };
+  }
+
+  applyNoise(amount) {
+    this.missionStats.noiseFootprint += amount;
+    this.missionStats.infiltration = Math.max(0, this.missionStats.infiltration - amount * 0.35);
+  }
+
+  registerDetection(severity = 10) {
+    this.missionStats.detectionEvents += 1;
+    this.missionStats.infiltration = Math.max(0, this.missionStats.infiltration - severity);
+  }
+
+  tickMissionTime(delta) {
+    this.missionStats.elapsed += delta;
+  }
+
+  getMissionStats() {
+    return { ...this.missionStats };
   }
 
   addJournalEntry(entry) {

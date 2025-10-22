@@ -21,10 +21,17 @@ export default class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, tileSize * 40, tileSize * 30);
 
     this.setupInput();
+    this.setupLighting();
+    this.setupMinimap();
 
     this.hud = new HUD(this);
 
     this.cameras.main.setZoom(1.2);
+
+    this.noiseEvents = [];
+    this.noiseLevel = 0;
+    this.walkNoiseTimer = 0;
+    this.alertDecay = 0.00012;
 
     this.loadMission(this.missionId);
 
@@ -68,8 +75,39 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  setupLighting() {
+    this.lights.enable().setAmbientColor(0x0b1521);
+    this.playerLight = null;
+    this.enemyLights = [];
+    this.generatorLights = [];
+    this.dynamicLightsEnabled = true;
+  }
+
+  setupMinimap() {
+    const { width } = this.scale;
+    this.minimapFrame = this.add
+      .image(width - 24, 200, 'hud-minimap')
+      .setScrollFactor(0)
+      .setDepth(5.2)
+      .setOrigin(1, 0);
+
+    this.minimapRect = new Phaser.Geom.Rectangle(width - 24 - 140, 212, 140, 140);
+    this.minimapGraphics = this.add.graphics().setScrollFactor(0).setDepth(5.1);
+
+    this.minimapLabel = this.add
+      .text(width - 24, 185, 'City Grid', {
+        fontFamily: 'Rajdhani',
+        fontSize: '18px',
+        color: '#e6f1ff',
+      })
+      .setScrollFactor(0)
+      .setDepth(5.3)
+      .setOrigin(1, 1);
+  }
+
   loadMission(missionId) {
     this.clearScene();
+    this.gameState.resetMissionStats();
 
     if (!missionId) {
       const current = this.gameState.currentMissionIndex;
@@ -97,6 +135,7 @@ export default class GameScene extends Phaser.Scene {
       marksmanship: this.gameState.playerProfile.attributes.marksmanship,
       stealthMode: false,
       wallet: this.gameState.wallet,
+      infiltrationRating: this.gameState.missionStats.infiltration,
       ammo: {
         clipSize: this.gameState.playerProfile.loadout.clipSize,
         current: this.gameState.playerProfile.loadout.clipSize,
@@ -116,7 +155,15 @@ export default class GameScene extends Phaser.Scene {
   clearScene() {
     if (this.walls) this.walls.clear(true, true);
     if (this.enemies) this.enemies.clear(true, true);
-    if (this.enemySprites) this.enemySprites.forEach((enemy) => enemy.sprite.destroy());
+    if (this.enemySprites) {
+      this.enemySprites.forEach((enemy) => {
+        enemy.visionCone?.destroy();
+        enemy.light?.destroy();
+        enemy.sprite?.destroy();
+      });
+    }
+    this.generatorLights?.forEach((light) => light.destroy());
+    this.generatorLights = [];
     if (this.floorLayer) this.floorLayer.forEach((tile) => tile.destroy());
     if (this.doors) this.doors.clear(true, true);
     if (this.foodItems) this.foodItems.clear(true, true);
@@ -125,12 +172,15 @@ export default class GameScene extends Phaser.Scene {
     if (this.allies) this.allies.clear(true, true);
 
     if (this.player) {
+      this.playerLight?.destroy();
+      this.cameraLight?.destroy();
       this.player.destroy();
     }
 
     this.enemySprites = [];
     this.decoys = [];
     this.activeMessages?.destroy();
+    this.minimapGraphics?.clear();
   }
 
   buildMap() {
@@ -145,6 +195,7 @@ export default class GameScene extends Phaser.Scene {
     this.generatorGroup = this.physics.add.staticGroup();
     this.allies = this.physics.add.staticGroup();
     this.lootItems = this.physics.add.staticGroup();
+    this.blockedTiles = new Set();
 
     let playerSpawn = { x: tileSize * 2, y: tileSize * 2 };
 
@@ -156,12 +207,15 @@ export default class GameScene extends Phaser.Scene {
 
         const floor = this.add.image(px, py, 'floor');
         floor.setDepth(0);
+        floor.setPipeline('Light2D');
         this.floorLayer.push(floor);
 
         switch (info.type) {
           case 'wall':
             const wall = this.walls.create(px, py, 'wall');
             wall.refreshBody();
+            wall.setPipeline('Light2D');
+            this.blockedTiles.add(`${x},${y}`);
             break;
           case 'player':
             playerSpawn = { x: px, y: py };
@@ -173,38 +227,52 @@ export default class GameScene extends Phaser.Scene {
             door.setData('locked', info.locked);
             door.setData('open', false);
             door.setData('position', { x, y });
+            door.setPipeline('Light2D');
+            if (info.locked) {
+              this.blockedTiles.add(`${x},${y}`);
+            }
             door.refreshBody();
             break;
           case 'food':
             const food = this.foodItems.create(px, py, 'food');
             food.setData('healing', 25);
+            food.setPipeline('Light2D');
             break;
           case 'terminal':
             const term = this.terminals.create(px, py, 'terminal');
             term.setData('hacked', false);
             term.setData('sequence', this.generateHackSequence());
             term.setData('trigger', 'terminal-hacked');
+            term.setPipeline('Light2D');
             break;
           case 'loot':
             const lootKey = info.item === 'wallet' ? 'loot-wallet' : 'loot-qubit';
             const loot = this.lootItems.create(px, py, lootKey);
             loot.setData('item', info.item);
+            loot.setPipeline('Light2D');
             break;
           case 'exit':
             const exit = this.exits.create(px, py, 'door-open');
             exit.setData('trigger', 'mission-exit');
+            exit.setPipeline('Light2D');
             break;
           case 'ally':
             const allyKey = info.id === 'larry' ? 'larry' : 'sera';
             const ally = this.allies.create(px, py, allyKey);
             ally.setData('id', info.id);
+            ally.setPipeline('Light2D');
             break;
           case 'cover':
-            this.coverGroup.create(px, py, 'cover');
+            const cover = this.coverGroup.create(px, py, 'cover');
+            cover.setPipeline('Light2D');
+            this.blockedTiles.add(`${x},${y}`);
             break;
           case 'generator':
             const gen = this.generatorGroup.create(px, py, 'generator');
             gen.setData('health', 100);
+            gen.setData('tilePosition', { x, y });
+            gen.setPipeline('Light2D');
+            this.generatorLights.push(this.lights.addLight(px, py, 220, 0x7f5af0, 0.32));
             break;
           default:
             break;
@@ -214,6 +282,11 @@ export default class GameScene extends Phaser.Scene {
 
     this.player = this.physics.add.sprite(playerSpawn.x, playerSpawn.y, 'player');
     this.player.setCollideWorldBounds(true);
+    this.player.setPipeline('Light2D');
+
+    this.playerLight = this.lights.addLight(this.player.x, this.player.y, 280, 0x1dd1a1, 1.1);
+
+    this.cameraLight = this.lights.addLight(this.player.x, this.player.y, 120, 0x1dd1a1, 0.45);
 
     this.bullets = this.physics.add.group({ classType: Phaser.Physics.Arcade.Image, maxSize: 40, runChildUpdate: true });
     this.enemyBullets = this.physics.add.group({ classType: Phaser.Physics.Arcade.Image, maxSize: 50, runChildUpdate: true });
@@ -235,13 +308,32 @@ export default class GameScene extends Phaser.Scene {
       const px = tile.x * tileSize + tileSize / 2;
       const py = tile.y * tileSize + tileSize / 2;
       const sprite = this.enemies.create(px, py, 'enemy');
+      sprite.setPipeline('Light2D');
       sprite.setData('config', config);
       sprite.setData('state', 'patrol');
       sprite.setData('patrolIndex', 0);
       sprite.setData('health', 60);
       sprite.setData('lastShot', 0);
-      this.enemySprites.push({ sprite, config });
+      sprite.setData('detection', 0);
+      const visionCone = this.add.graphics().setDepth(0.2);
+      const light = this.lights.addLight(px, py, 180, 0xff6b6b, 0.35);
+      this.enemySprites.push({
+        sprite,
+        config,
+        visionCone,
+        light,
+        detection: 0,
+        state: 'patrol',
+        patrolIndex: 0,
+        lastKnown: null,
+        searchTimer: 0,
+        hearingCooldown: 0,
+        escalated: false,
+        facing: Phaser.Math.FloatBetween(-Math.PI, Math.PI),
+      });
     });
+
+    this.refreshGeneratorLighting();
 
     this.physics.add.collider(this.player, this.walls);
     this.physics.add.collider(this.enemies, this.walls);
@@ -254,6 +346,9 @@ export default class GameScene extends Phaser.Scene {
 
     this.physics.add.overlap(this.bullets, this.enemies, (bullet, enemy) => this.onBulletHitEnemy(bullet, enemy));
     this.physics.add.overlap(this.enemyBullets, this.player, (bullet) => this.onPlayerHit(bullet));
+    this.physics.add.collider(this.bullets, this.walls, (bullet) => bullet.destroy());
+    this.physics.add.collider(this.enemyBullets, this.walls, (bullet) => bullet.destroy());
+    this.physics.add.collider(this.bullets, this.coverGroup, (bullet) => bullet.destroy());
 
     this.physics.add.overlap(this.player, this.foodItems, (player, food) => this.onFoodNearby(food));
     this.physics.add.overlap(this.player, this.terminals, (player, terminal) => this.onTerminalNearby(terminal));
@@ -284,7 +379,7 @@ export default class GameScene extends Phaser.Scene {
   createMissionLog() {
     if (this.logContainer) this.logContainer.destroy(true);
 
-    this.logContainer = this.add.container(20, 140);
+    this.logContainer = this.add.container(20, 190);
     this.logBackground = this.add.rectangle(0, 0, 420, 520, 0x020b12, 0.88)
       .setOrigin(0, 0)
       .setScrollFactor(0)
@@ -309,10 +404,20 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
+    this.gameState.tickMissionTime(delta);
+    this.alertLevel = Math.max(0, this.alertLevel - this.alertDecay * delta);
+
     this.handleMovement(delta);
     this.handleShooting(time);
     this.updateEnemies(time, delta);
     this.updateDecoys(delta);
+    this.updateNoise(delta);
+    this.updateLighting();
+    this.drawMinimap();
+
+    this.playerStats.wallet = this.gameState.wallet;
+    this.playerStats.infiltrationRating = this.gameState.missionStats.infiltration;
+
     if (this.enemies && this.enemies.countActive(true) === 0) {
       this.advanceObjective('Protect the Orion convoy from the Redline Gang.');
       this.advanceObjective('Hold the line with Larry while Sera deploys the broadcast.');
@@ -320,6 +425,7 @@ export default class GameScene extends Phaser.Scene {
     this.hud.updateStats(this.playerStats);
     this.hud.updateObjectives(this.currentMission.name, this.getObjectiveStatus());
     this.hud.updateAlert(this.alertLevel);
+    this.hud.updateNoise(this.noiseLevel);
 
     if (this.playerStats.health <= 0) {
       this.onPlayerDown();
@@ -348,6 +454,18 @@ export default class GameScene extends Phaser.Scene {
     const pointer = this.input.activePointer;
     const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, pointer.worldX, pointer.worldY);
     this.player.setRotation(angle);
+    this.player.setTexture(this.playerStats.stealthMode ? 'player-stealth' : 'player');
+
+    const moving = vx !== 0 || vy !== 0;
+    if (moving && !this.playerStats.stealthMode) {
+      this.walkNoiseTimer -= delta;
+      if (this.walkNoiseTimer <= 0) {
+        this.emitNoise(this.player.x, this.player.y, tileSize * 3.5, 6, 720);
+        this.walkNoiseTimer = Phaser.Math.Between(420, 560);
+      }
+    } else {
+      this.walkNoiseTimer = Phaser.Math.Clamp(this.walkNoiseTimer, 0, 180);
+    }
   }
 
   handleShooting(time) {
@@ -369,46 +487,299 @@ export default class GameScene extends Phaser.Scene {
     });
     ammo.current -= 1;
     ammo.lastFired = time;
+    this.emitNoise(this.player.x, this.player.y, tileSize * 5, 12, 840);
   }
 
   updateEnemies(time, delta) {
-    const detectionModifier = this.playerStats.stealthMode ? 0.45 : 1;
+    const stealthFactor = this.playerStats.stealthMode ? 0.25 : 1;
+    this.enemySprites = this.enemySprites.filter((enemyData) => enemyData.sprite?.active);
+
     this.enemySprites.forEach((enemyData) => {
-      const sprite = enemyData.sprite;
-      if (!sprite.active) return;
-      const config = enemyData.config;
-      const state = sprite.getData('state');
-      const patrolIndex = sprite.getData('patrolIndex');
-      const patrolPoints = config.patrol;
+      const { sprite, config } = enemyData;
+      const stateFromSprite = sprite.getData('state');
+      if (stateFromSprite && stateFromSprite !== enemyData.state) {
+        enemyData.state = stateFromSprite;
+      }
 
-      if (state === 'patrol' && patrolPoints?.length) {
-        const target = patrolPoints[patrolIndex % patrolPoints.length];
-        const targetX = target.x * tileSize + tileSize / 2;
-        const targetY = target.y * tileSize + tileSize / 2;
-        const dist = Phaser.Math.Distance.Between(sprite.x, sprite.y, targetX, targetY);
-        if (dist < 6) {
-          sprite.setData('patrolIndex', (patrolIndex + 1) % patrolPoints.length);
-        } else {
-          this.physics.moveTo(sprite, targetX, targetY, 90);
+      if (enemyData.hearingCooldown > 0) {
+        enemyData.hearingCooldown -= delta;
+      }
+
+      const toPlayer = new Phaser.Math.Vector2(this.player.x - sprite.x, this.player.y - sprite.y);
+      const distance = toPlayer.length();
+      const detectionRadius = config.detection;
+      const lineOfSight = this.hasLineOfSight(sprite, this.player);
+      const angleToPlayer = Phaser.Math.Angle.Wrap(toPlayer.angle() - enemyData.facing);
+      const withinFov = Math.abs(angleToPlayer) <= Phaser.Math.DegToRad(55);
+
+      if (enemyData.distractedTimer) {
+        enemyData.distractedTimer -= delta;
+        if (enemyData.distractedTimer <= 0) {
+          enemyData.state = 'patrol';
+          enemyData.distractedTimer = 0;
         }
       }
 
-      const detectionRadius = config.detection * detectionModifier;
-      const distToPlayer = Phaser.Math.Distance.Between(sprite.x, sprite.y, this.player.x, this.player.y);
+      if (lineOfSight && withinFov && distance < detectionRadius) {
+        const stealthSkillFactor = Phaser.Math.Clamp(1 - this.playerStats.stealthSkill / 240, 0.35, 1.1);
+        const detectionGain = (delta / 16) * (100 / detectionRadius) * stealthFactor * stealthSkillFactor;
+        enemyData.detection = Phaser.Math.Clamp(enemyData.detection + detectionGain, 0, 120);
+        enemyData.lastKnown = { x: this.player.x, y: this.player.y };
+        enemyData.facing = Phaser.Math.Angle.Between(sprite.x, sprite.y, this.player.x, this.player.y);
 
-      if (distToPlayer < detectionRadius) {
-        sprite.setData('state', 'alert');
-        this.alertLevel = Phaser.Math.Clamp(this.alertLevel + delta / 8000, 0, 1.2);
+        if (enemyData.detection >= 60 && enemyData.state !== 'combat') {
+          enemyData.state = enemyData.detection >= 100 ? 'combat' : 'suspicious';
+        }
+
+        if (enemyData.detection >= 100 && !enemyData.escalated) {
+          enemyData.escalated = true;
+          enemyData.state = 'combat';
+          this.alertLevel = Math.min(1, this.alertLevel + 0.35);
+          this.gameState.registerDetection(18);
+          this.emitNoise(sprite.x, sprite.y, tileSize * 4, 9, 900);
+        }
+      } else {
+        enemyData.detection = Phaser.Math.Clamp(enemyData.detection - delta / 24, 0, 120);
+        if (enemyData.state === 'combat' && enemyData.detection < 40 && enemyData.lastKnown) {
+          enemyData.state = 'search';
+          enemyData.searchTimer = 2400;
+        } else if (enemyData.state === 'suspicious' && enemyData.detection < 12) {
+          enemyData.state = 'patrol';
+        }
       }
 
-      if (sprite.getData('state') === 'alert') {
-        this.physics.moveToObject(sprite, this.player, 140);
-        const lastShot = sprite.getData('lastShot');
-        if (time - lastShot > 600) {
-          this.enemyFire(sprite, config, time);
+      if (enemyData.hearingCooldown <= 0) {
+        for (const noise of this.noiseEvents) {
+          if (Phaser.Math.Distance.Between(sprite.x, sprite.y, noise.x, noise.y) <= noise.radius) {
+            enemyData.state = 'investigate';
+            enemyData.noiseTarget = { x: noise.x, y: noise.y };
+            enemyData.hearingCooldown = 1600;
+            enemyData.searchTimer = 2000;
+            break;
+          }
         }
+      }
+
+      switch (enemyData.state) {
+        case 'patrol':
+          this.handleEnemyPatrol(enemyData);
+          break;
+        case 'suspicious':
+          this.physics.moveToObject(sprite, this.player, 140);
+          enemyData.facing = Phaser.Math.Angle.Between(sprite.x, sprite.y, this.player.x, this.player.y);
+          break;
+        case 'investigate':
+          if (enemyData.noiseTarget) {
+            this.physics.moveTo(sprite, enemyData.noiseTarget.x, enemyData.noiseTarget.y, 120);
+            const dist = Phaser.Math.Distance.Between(sprite.x, sprite.y, enemyData.noiseTarget.x, enemyData.noiseTarget.y);
+            if (dist < 14) {
+              enemyData.state = 'search';
+              enemyData.searchTimer = 1600;
+              enemyData.noiseTarget = null;
+            }
+          }
+          break;
+        case 'search':
+          if (enemyData.lastKnown) {
+            const { x, y } = enemyData.lastKnown;
+            const dist = Phaser.Math.Distance.Between(sprite.x, sprite.y, x, y);
+            if (dist > 18) {
+              this.physics.moveTo(sprite, x, y, 110);
+              enemyData.facing = Phaser.Math.Angle.Between(sprite.x, sprite.y, x, y);
+            } else {
+              sprite.body.setVelocity(0, 0);
+              enemyData.searchTimer -= delta;
+              if (enemyData.searchTimer <= 0) {
+                enemyData.state = 'patrol';
+                enemyData.lastKnown = null;
+                enemyData.escalated = false;
+              }
+            }
+          } else {
+            enemyData.state = 'patrol';
+          }
+          break;
+        case 'distracted':
+          sprite.body.setVelocity(0, 0);
+          break;
+        default:
+          this.physics.moveToObject(sprite, this.player, 165);
+          enemyData.facing = Phaser.Math.Angle.Between(sprite.x, sprite.y, this.player.x, this.player.y);
+          const lastShot = sprite.getData('lastShot');
+          if (time - lastShot > 520) {
+            this.enemyFire(sprite, config, time);
+          }
+          break;
+      }
+
+      const velocity = sprite.body.velocity;
+      if (velocity.lengthSq() > 16) {
+        enemyData.facing = velocity.angle();
+      }
+
+      sprite.setData('state', enemyData.state);
+      sprite.setData('patrolIndex', enemyData.patrolIndex || 0);
+      sprite.setData('detection', enemyData.detection);
+      enemyData.light.x = sprite.x;
+      enemyData.light.y = sprite.y;
+      this.drawEnemyVisionCone(enemyData);
+    });
+  }
+
+  handleEnemyPatrol(enemyData) {
+    const { sprite, config } = enemyData;
+    const patrol = config.patrol || [];
+    if (!patrol.length) {
+      sprite.body.setVelocity(0, 0);
+      return;
+    }
+
+    const index = enemyData.patrolIndex ?? 0;
+    const target = patrol[index % patrol.length];
+    const targetX = target.x * tileSize + tileSize / 2;
+    const targetY = target.y * tileSize + tileSize / 2;
+    const dist = Phaser.Math.Distance.Between(sprite.x, sprite.y, targetX, targetY);
+    if (dist < 8) {
+      enemyData.patrolIndex = (index + 1) % patrol.length;
+      sprite.body.setVelocity(0, 0);
+    } else {
+      this.physics.moveTo(sprite, targetX, targetY, 90);
+      enemyData.facing = Phaser.Math.Angle.Between(sprite.x, sprite.y, targetX, targetY);
+    }
+  }
+
+  drawEnemyVisionCone(enemyData) {
+    const { sprite, config, visionCone, detection } = enemyData;
+    const radius = config.detection * 0.6;
+    const color = detection > 80 ? 0xff6b6b : detection > 30 ? 0xffd166 : 0x84a9c0;
+    const fov = Phaser.Math.DegToRad(55);
+    const steps = 18;
+    visionCone.clear();
+    visionCone.fillStyle(color, 0.18);
+    visionCone.beginPath();
+    visionCone.moveTo(sprite.x, sprite.y);
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const angle = enemyData.facing - fov + fov * 2 * t;
+      visionCone.lineTo(sprite.x + Math.cos(angle) * radius, sprite.y + Math.sin(angle) * radius);
+    }
+    visionCone.closePath();
+    visionCone.fillPath();
+  }
+
+  hasLineOfSight(source, target) {
+    const distance = Phaser.Math.Distance.Between(source.x, source.y, target.x, target.y);
+    const steps = Math.ceil(distance / (tileSize / 2));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = Phaser.Math.Linear(source.x, target.x, t);
+      const y = Phaser.Math.Linear(source.y, target.y, t);
+      const tileX = Math.floor(x / tileSize);
+      const tileY = Math.floor(y / tileSize);
+      if (this.blockedTiles.has(`${tileX},${tileY}`)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  emitNoise(x, y, radius, intensity = 4, duration = 600) {
+    if (!this.noiseEvents) this.noiseEvents = [];
+    this.noiseEvents.push({ x, y, radius, ttl: duration, intensity });
+    const ping = this.add.sprite(x, y, 'noise-ping');
+    ping.setDepth(2);
+    const baseScale = (radius / tileSize) * 0.5;
+    ping.setScale(baseScale);
+    ping.setAlpha(0.4);
+    this.tweens.add({
+      targets: ping,
+      alpha: 0,
+      scale: baseScale * 1.4,
+      duration,
+      onComplete: () => ping.destroy(),
+    });
+    this.noiseLevel = Phaser.Math.Clamp(this.noiseLevel + intensity / 100, 0, 1.5);
+    this.gameState.applyNoise(intensity * 0.5);
+  }
+
+  updateNoise(delta) {
+    this.noiseLevel = Phaser.Math.Clamp(this.noiseLevel - delta / 4000, 0, 1.5);
+    this.noiseEvents = this.noiseEvents
+      .map((event) => ({ ...event, ttl: event.ttl - delta }))
+      .filter((event) => event.ttl > 0);
+  }
+
+  drawMinimap() {
+    if (!this.minimapGraphics || !this.minimapRect || !this.currentMap) return;
+    const rect = this.minimapRect;
+    const mapWidth = this.currentMap.width * tileSize;
+    const mapHeight = this.currentMap.height * tileSize;
+    this.minimapGraphics.clear();
+    this.minimapGraphics.fillStyle(0x01070d, 0.88);
+    this.minimapGraphics.fillRect(rect.x, rect.y, rect.width, rect.height);
+
+    const drawPoint = (x, y, size, color) => {
+      const px = rect.x + (x / mapWidth) * rect.width;
+      const py = rect.y + (y / mapHeight) * rect.height;
+      this.minimapGraphics.fillStyle(color, 1);
+      this.minimapGraphics.fillRect(px - size / 2, py - size / 2, size, size);
+    };
+
+    this.walls?.getChildren().forEach((wall) => {
+      drawPoint(wall.x, wall.y, 3, 0x0f2a3c);
+    });
+
+    this.enemySprites.forEach((enemy) => {
+      if (enemy.sprite.active) {
+        drawPoint(enemy.sprite.x, enemy.sprite.y, 4, 0xff6b6b);
       }
     });
+
+    if (this.player) {
+      drawPoint(this.player.x, this.player.y, 5, 0x1dd1a1);
+    }
+
+    this.exits?.getChildren().forEach((exit) => {
+      drawPoint(exit.x, exit.y, 4, 0xffd166);
+    });
+  }
+
+  updateLighting() {
+    if (!this.dynamicLightsEnabled) return;
+    if (this.playerLight) {
+      this.playerLight.x = this.player.x;
+      this.playerLight.y = this.player.y;
+      this.playerLight.intensity = this.playerStats.stealthMode ? 0.7 : 1.1;
+    }
+    if (this.cameraLight) {
+      this.cameraLight.x = this.player.x;
+      this.cameraLight.y = this.player.y;
+      this.cameraLight.intensity = this.playerStats.stealthMode ? 0.25 : 0.5;
+    }
+  }
+
+  refreshGeneratorLighting() {
+    const generators = this.generatorGroup?.getChildren() || [];
+    if (!generators.length) {
+      this.lights.setAmbientColor(0x0b1521);
+      return;
+    }
+
+    let totalHealth = 0;
+    generators.forEach((generator, index) => {
+      const health = generator.getData('health') ?? 100;
+      totalHealth += health;
+      const light = this.generatorLights[index];
+      if (light) {
+        light.intensity = Phaser.Math.Clamp(health / 100, 0.1, 1) * 0.35;
+      }
+    });
+
+    const ratio = Phaser.Math.Clamp(totalHealth / (generators.length * 100), 0, 1);
+    const base = Phaser.Display.Color.ValueToColor(0x05080c);
+    const bright = Phaser.Display.Color.ValueToColor(0x0b1521);
+    const blended = Phaser.Display.Color.Interpolate.ColorWithColor(base, bright, 100, ratio * 100);
+    this.lights.setAmbientColor(Phaser.Display.Color.GetColor(blended.r, blended.g, blended.b));
   }
 
   updateDecoys(delta) {
@@ -437,16 +808,31 @@ export default class GameScene extends Phaser.Scene {
       if (bullet.active) bullet.destroy();
     });
     enemySprite.setData('lastShot', time);
+    this.emitNoise(enemySprite.x, enemySprite.y, tileSize * 4, 8, 780);
   }
   onBulletHitEnemy(bullet, enemy) {
     bullet.destroy();
     const damage = this.playerStats.ammo.damage;
     const current = enemy.getData('health') - damage;
     enemy.setData('health', current);
-    enemy.setData('state', 'alert');
+    enemy.setData('state', 'combat');
+    const data = this.enemySprites.find((entry) => entry.sprite === enemy);
+    if (data) {
+      data.state = 'combat';
+      data.detection = 100;
+      data.escalated = true;
+    }
+    this.gameState.registerDetection(10);
+    this.alertLevel = Math.min(1, this.alertLevel + 0.2);
+    this.emitNoise(enemy.x, enemy.y, tileSize * 2.5, 6, 520);
     if (current <= 0) {
       this.createFloatingText(enemy.x, enemy.y, 'Neutralized');
+      if (data) {
+        data.visionCone.destroy();
+        data.light.destroy();
+      }
       enemy.destroy();
+      this.enemySprites = this.enemySprites.filter((entry) => entry.sprite !== enemy);
     }
   }
 
@@ -454,6 +840,8 @@ export default class GameScene extends Phaser.Scene {
     bullet.destroy();
     this.playerStats.health -= 18;
     this.createFloatingText(this.player.x, this.player.y, '-18 HP', '#ff6b6b');
+    this.gameState.registerDetection(6);
+    this.alertLevel = Math.min(1, this.alertLevel + 0.15);
   }
 
   onPlayerDown() {
@@ -644,6 +1032,10 @@ export default class GameScene extends Phaser.Scene {
     this.finishHackingState();
     this.triggerNarrative('hack-failed');
     this.alertLevel = Math.min(1, this.alertLevel + 0.3);
+    if (this.hackingTarget) {
+      this.emitNoise(this.hackingTarget.x, this.hackingTarget.y, tileSize * 3.2, 8, 900);
+    }
+    this.gameState.registerDetection(14);
   }
 
   finishHackingState() {
@@ -684,6 +1076,8 @@ export default class GameScene extends Phaser.Scene {
     generator.setData('health', Math.max(0, health - 10));
     this.triggerNarrative('generators-stable');
     this.advanceObjective('Defend the safehouse generators to keep power online.');
+    this.refreshGeneratorLighting();
+    this.emitNoise(generator.x, generator.y, tileSize * 3, 5, 720);
   }
 
   openDoor(door) {
@@ -694,6 +1088,11 @@ export default class GameScene extends Phaser.Scene {
     }
     door.setData('open', true);
     door.disableBody(true, true);
+    const pos = door.getData('position');
+    if (pos) {
+      this.blockedTiles.delete(`${pos.x},${pos.y}`);
+    }
+    this.emitNoise(door.x, door.y, tileSize * 1.5, 3, 420);
   }
 
   generateHackSequence() {
@@ -709,6 +1108,9 @@ export default class GameScene extends Phaser.Scene {
   toggleStealth() {
     this.playerStats.stealthMode = !this.playerStats.stealthMode;
     this.createFloatingText(this.player.x, this.player.y, this.playerStats.stealthMode ? 'Stealth' : 'Engaged', '#84a9c0');
+    if (this.playerLight) {
+      this.playerLight.radius = this.playerStats.stealthMode ? 220 : 280;
+    }
   }
 
   reloadWeapon() {
@@ -728,11 +1130,12 @@ export default class GameScene extends Phaser.Scene {
     this.createFloatingText(this.player.x, this.player.y, 'Holo-decoy deployed', '#7f5af0');
     this.enemySprites.forEach((enemyData) => {
       if (!enemyData.sprite.active) return;
+      enemyData.state = 'distracted';
       enemyData.sprite.setData('state', 'distracted');
-      this.time.delayedCall(2000, () => {
-        if (enemyData.sprite.active) enemyData.sprite.setData('state', 'patrol');
-      });
+      enemyData.detection = Math.max(0, enemyData.detection - 25);
+      enemyData.distractedTimer = 2200;
     });
+    this.emitNoise(decoySprite.x, decoySprite.y, tileSize * 2.5, 5, 600);
   }
   toggleLog() {
     const visible = !this.logBackground.visible;
@@ -821,6 +1224,11 @@ export default class GameScene extends Phaser.Scene {
       this.missions.length - 1,
     );
     this.currentMission.rewards.codexUnlocks?.forEach((id) => this.gameState.unlockCodex(id));
+    const missionStats = this.gameState.getMissionStats();
+    const summary = `Infiltration rating ${Math.round(missionStats.infiltration)} · Noise ${Math.round(
+      missionStats.noiseFootprint,
+    )} · Detections ${missionStats.detectionEvents}`;
+    this.gameState.addJournalEntry({ title: `${this.currentMission.name} — Debrief`, body: summary });
     this.events.emit('mission-complete');
   }
 

@@ -37,6 +37,7 @@ export default class BootScene extends Phaser.Scene {
     };
 
     createRect('player', 0x1dd1a1, tileSize * 0.7, tileSize * 0.7);
+    createRect('player-stealth', 0x0f7862, tileSize * 0.7, tileSize * 0.7);
     createRect('enemy', 0xff6b6b, tileSize * 0.7, tileSize * 0.7);
     createRect('larry', 0xffd166, tileSize * 0.8, tileSize * 0.8);
     createRect('sera', 0x7f5af0, tileSize * 0.8, tileSize * 0.8);
@@ -112,7 +113,23 @@ export default class BootScene extends Phaser.Scene {
     g.clear();
     g.fillStyle(0xfff275, 1);
     g.fillRect(0, 0, 10, 4);
+    g.fillStyle(0xffc947, 1);
+    g.fillRect(6, 1, 4, 2);
     g.generateTexture('bullet', 10, 4);
+
+    // Sonic ping for minimap/noise visualization
+    g.clear();
+    g.lineStyle(2, 0x1dd1a1, 1);
+    g.strokeCircle(tileSize / 2, tileSize / 2, tileSize / 2 - 4);
+    g.generateTexture('noise-ping', tileSize, tileSize);
+
+    // HUD minimap backdrop
+    g.clear();
+    g.fillStyle(0x020b12, 0.82);
+    g.fillRoundedRect(0, 0, 160, 160, 12);
+    g.lineStyle(2, 0x1dd1a1, 0.6);
+    g.strokeRoundedRect(0, 0, 160, 160, 12);
+    g.generateTexture('hud-minimap', 160, 160);
 
     // Cover
     g.clear();

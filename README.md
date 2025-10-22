@@ -11,9 +11,11 @@ Open `index.html` in any modern browser (Chrome, Firefox, Safari, Edge). No buil
 - **Character creation:** Choose Nova's background, perk, and name to customize stats, stealth, and hacking capability.
 - **Narrative campaign (~1 hour):** Four missions with dialogue-rich story chapters covering the gas station heist, Neon Lot alliance, Hyperion annex raid, and finale broadcast.
 - **Top-down combat & stealth:** Twin-stick aiming with WASD movement, stealth stance toggles, suppressible alert meter, and holo-decoy gadgetry.
+- **Living enemy AI:** Guards sweep with patrol/search/investigate/combat states, vision cones, and responsive hearing that reacts to your noise footprint.
 - **RPG interactions:** Hack terminals via mini-games, open locked doors, pick up food for buffs, gather loot (cold wallets, qubits), and interact with allies for branching outcomes.
+- **Dynamic HUD + minimap:** A refreshed HUD tracks ammo, infiltration rating, noise, and alert levels alongside a live minimap of threats and exits.
 - **Mission log & codex:** TAB opens a live objective tracker and journal. Unlock lore entries about locations, factions, and technology.
-- **Dynamic HUD:** Real-time health, stance, wallet balance, alert status, and mission objectives.
+- **Atmospheric lighting:** Dynamic light sources, generator-powered ambience, and stealth-sensitive player glow immerse each map.
 
 ## Controls
 
@@ -36,6 +38,6 @@ Open `index.html` in any modern browser (Chrome, Firefox, Safari, Edge). No buil
 - Built with Phaser 3 (via CDN) and modular ES6 scenes.
 - All textures are procedurally generated in `BootScene` to keep the repo asset-light.
 - Maps, missions, and codex data live in `js/data/`.
-- `GameScene` implements core gameplay, including AI patrols, hacking mini-game, stealth, and mission progression.
+- `GameScene` now layers in advanced AI, stealth acoustics, dynamic lights, a minimap renderer, and mission-performance scoring.
 
 Enjoy causing some disorderly conduct! Nova's fate is in your hands.
