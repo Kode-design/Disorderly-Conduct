@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Disorderly Conduct</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="overlay">
+      <div id="logo">DISORDERLY CONDUCT</div>
+      <div id="subtitle">Year 2030 · Bc2 is king · Trust no one</div>
+      <div id="story-panel" class="hidden"></div>
+      <div id="hud" class="hidden">
+        <div class="hud-row">
+          <div class="hud-col">
+            <span class="label">Health</span>
+            <div class="bar"><div id="health-bar"></div></div>
+          </div>
+          <div class="hud-col">
+            <span class="label">Energy</span>
+            <div class="bar"><div id="energy-bar"></div></div>
+          </div>
+          <div class="hud-col">
+            <span class="label">Cred</span>
+            <span id="bc2-display">0 Bc2</span>
+          </div>
+        </div>
+        <div class="hud-row">
+          <div class="hud-col">
+            <span class="label">Noise</span>
+            <div class="bar"><div id="noise-bar"></div></div>
+          </div>
+          <div class="hud-col">
+            <span class="label">Objective</span>
+            <div id="objective-display"></div>
+          </div>
+          <div class="hud-col">
+            <span class="label">Larry Comms</span>
+            <div id="comms-display"></div>
+          </div>
+        </div>
+      </div>
+      <button id="start-button">Begin the Heist</button>
+      <div id="controls">
+        <h3>Controls</h3>
+        <p>
+          Move with <strong>WASD</strong>, aim with your mouse, shoot with
+          <strong>Left Click</strong>. Hold <strong>Shift</strong> to sprint,
+          <strong>R</strong> to reload, <strong>E</strong> to interact, and
+          <strong>F</strong> to consume found food.
+        </p>
+      </div>
+    </div>
+    <div id="mission-log">
+      <h4>Mission Timeline</h4>
+      <ul></ul>
+    </div>
+    <canvas id="game-canvas"></canvas>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
